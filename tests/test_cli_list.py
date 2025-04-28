@@ -14,18 +14,26 @@ def set_xdg_config_home(tmp_path, monkeypatch):
 
 
 def test_list_no_workflows(set_xdg_config_home):
+    print(f"\nTest files will be created in: {set_xdg_config_home}")
     runner = CliRunner()
-    result = runner.invoke(app, ["init"])
+    result = runner.invoke(app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)})
     assert result.exit_code == 0
     assert "Initialized config at" in result.stdout
 
+    # Show the contents of the config directory
+    config_dir = set_xdg_config_home / "floww"
+    print(f"Contents of {config_dir}:")
+    for path in config_dir.rglob("*"):
+        print(f"  {path.relative_to(config_dir)}")
+
     # Listing before any workflows
-    result = runner.invoke(app, ["list"])
+    result = runner.invoke(app, ["list"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)})
     assert result.exit_code == 0
     assert "No workflows found" in result.stdout
 
 
 def test_list_with_workflows(set_xdg_config_home):
+    print(f"\nTest files will be created in: {set_xdg_config_home}")
     cfg = ConfigManager()
     cfg.init()
     workflows_dir = cfg.workflows_dir
@@ -33,9 +41,13 @@ def test_list_with_workflows(set_xdg_config_home):
     (workflows_dir / "alpha.yaml").write_text("dummy: 1")
     (workflows_dir / "beta.yaml").write_text("dummy: 2")
 
+    print(f"Contents of {workflows_dir}:")
+    for path in workflows_dir.rglob("*"):
+        print(f"  {path.relative_to(workflows_dir)}")
+
     runner = CliRunner()
-    result = runner.invoke(app, ["list"])
+    result = runner.invoke(app, ["list"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)})
     assert result.exit_code == 0
     lines = result.stdout.strip().splitlines()
-    assert "alpha" in lines
-    assert "beta" in lines
+    assert "  - alpha" in lines
+    assert "  - beta" in lines

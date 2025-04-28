@@ -61,8 +61,24 @@ def test_load_workflow(tmp_path):
     # Write a workflow
     workflows_dir = base_dir / "workflows"
     wf_path = workflows_dir / "demo.yaml"
-    data = {"workspaces": {"0": [{"name": "Terminal", "exec": "xterm"}]}}
+    data = {
+        "workspaces": [
+            {
+                "target": 0,
+                "apps": [{"name": "Terminal", "exec": "xterm"}]
+            }
+        ]
+    }
     wf_path.write_text(yaml.dump(data))
 
     loaded = config_mgr.load_workflow("demo")
-    assert loaded == data
+    # The loaded data will have default type field added
+    expected = {
+        "workspaces": [
+            {
+                "target": 0,
+                "apps": [{"name": "Terminal", "exec": "xterm", "type": "binary"}]
+            }
+        ]
+    }
+    assert loaded == expected
