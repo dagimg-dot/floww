@@ -22,5 +22,4 @@ test:
 	PYTHONPATH=$(PYTHONPATH) XDG_CONFIG_HOME=tests/test_config pytest
 
 build:
-	# Include hidden imports for shell detection (used by Typer for --show-completion)
 	pyinstaller $(PYINSTALLER_OPTS) src/floww/__main__.py
