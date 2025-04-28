@@ -2,7 +2,22 @@ import typer
 from . import __version__ as VERSION
 from .config import ConfigManager
 
-app = typer.Typer(help="floww CLI tool")
+FLOWW_ART = r"""
+
+  /$$$$$$  /$$                                      
+ /$$__  $$| $$                                      
+| $$  \__/| $$  /$$$$$$  /$$  /$$  /$$ /$$  /$$  /$$
+| $$$$    | $$ /$$__  $$| $$ | $$ | $$| $$ | $$ | $$
+| $$_/    | $$| $$  \ $$| $$ | $$ | $$| $$ | $$ | $$
+| $$      | $$| $$  | $$| $$ | $$ | $$| $$ | $$ | $$
+| $$      | $$|  $$$$$$/|  $$$$$/$$$$/|  $$$$$/$$$$/
+|__/      |__/ \______/  \_____/\___/  \_____/\___/ 
+"""
+
+app = typer.Typer(
+    help="floww - your workflow automations in one place",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 
 
 @app.command()
@@ -32,11 +47,15 @@ def apply(name: str = typer.Argument(None, help="Workflow name to apply")):
 
 
 @app.callback(invoke_without_command=True)
-def version(
+def customer_option_callback(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-v", help="Show version"),
 ):
-    """Show version and exit."""
+    """Show version or help and exit."""
     if version:
         typer.echo(f"floww version {VERSION}")
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        typer.echo(FLOWW_ART)
+        typer.echo(ctx.get_help())
         raise typer.Exit()
