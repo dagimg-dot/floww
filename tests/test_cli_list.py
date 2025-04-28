@@ -123,4 +123,4 @@ workspaces:
         app, ["validate", "invalid"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
     )
     assert result.exit_code == 1
-    assert "Invalid workflow format" in result.stdout
+    assert "missing the required 'apps' key" in result.stdout

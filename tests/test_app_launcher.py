@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
+from floww.errors import AppLaunchError
 
 from floww.app_launcher import AppLauncher
 
@@ -86,11 +87,9 @@ def test_launch_app_not_found(app_launcher):
         "exec": "non-existent-app",
     }
 
-    with patch("floww.app_launcher.subprocess.Popen") as mock_popen:
-        mock_popen.side_effect = FileNotFoundError()
-
-        success = app_launcher.launch_app(app_config)
-        assert success is False
+    with pytest.raises(AppLaunchError) as exc_info:
+        app_launcher.launch_app(app_config)
+    assert "Command not found for 'Missing App'" in str(exc_info.value)
 
 
 def test_launch_app_permission_error(app_launcher):
@@ -99,11 +98,9 @@ def test_launch_app_permission_error(app_launcher):
         "exec": "/root/app",
     }
 
-    with patch("floww.app_launcher.subprocess.Popen") as mock_popen:
-        mock_popen.side_effect = PermissionError()
-
-        success = app_launcher.launch_app(app_config)
-        assert success is False
+    with pytest.raises(AppLaunchError) as exc_info:
+        app_launcher.launch_app(app_config)
+    assert "Permission denied when launching" in str(exc_info.value)
 
 
 def test_launch_app_invalid_type(app_launcher):
@@ -113,8 +110,9 @@ def test_launch_app_invalid_type(app_launcher):
         "type": "invalid",
     }
 
-    success = app_launcher.launch_app(app_config)
-    assert success is False
+    with pytest.raises(AppLaunchError) as exc_info:
+        app_launcher.launch_app(app_config)
+    assert "Unknown app type 'invalid'" in str(exc_info.value)
 
 
 def test_launch_app_with_tilde_in_exec(app_launcher):

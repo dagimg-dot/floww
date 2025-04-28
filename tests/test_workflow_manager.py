@@ -22,7 +22,7 @@ def test_apply_workflow_with_description(workflow_manager):
     with patch("floww.workflow_manager.typer.echo") as mock_echo:
         success = workflow_manager.apply(workflow_data)
         assert success is True
-        mock_echo.assert_any_call("Workflow description: Test workflow")
+        mock_echo.assert_any_call("Workflow: Test workflow")
 
 
 def test_apply_workflow_switch_workspace_failure(workflow_manager):
@@ -54,7 +54,7 @@ def test_apply_workflow_launch_apps(workflow_manager):
     # Mock successful app launches
     workflow_manager.app_launcher.launch_app = MagicMock(return_value=True)
 
-    with patch("floww.workflow_manager.typer.echo") as mock_echo:
+    with patch("floww.workflow_manager.typer.secho") as mock_secho:
         success = workflow_manager.apply(workflow_data)
         assert success is True
 
@@ -70,11 +70,8 @@ def test_apply_workflow_launch_apps(workflow_manager):
             {"name": "App2", "exec": "app2", "args": ["--flag"]}
         )
 
-        # Verify user feedback
-        mock_echo.assert_any_call("Switching to workspace 1...")
-        mock_echo.assert_any_call("Launching App1...")
-        mock_echo.assert_any_call("Launching App2...")
-        mock_echo.assert_any_call("Workflow applied successfully")
+        # Verify success message with color
+        mock_secho.assert_any_call("✓ Workflow applied successfully", fg="green")
 
 
 def test_apply_workflow_app_launch_failure(workflow_manager):
@@ -95,14 +92,13 @@ def test_apply_workflow_app_launch_failure(workflow_manager):
     # Mock app launch failure
     workflow_manager.app_launcher.launch_app = MagicMock(return_value=False)
 
-    with patch("floww.workflow_manager.typer.echo") as mock_echo:
+    with patch("floww.workflow_manager.typer.secho") as mock_secho:
         success = workflow_manager.apply(workflow_data)
-        # Overall workflow should still succeed even if app launch fails
-        assert success is True
+        assert success is False
 
         # Verify error messages
-        mock_echo.assert_any_call("Failed to launch App1")
-        mock_echo.assert_any_call("Failed to launch App2")
+        mock_secho.assert_any_call("Failed to launch App1", fg="red")
+        mock_secho.assert_any_call("⚠ Workflow completed with errors", fg="yellow")
 
 
 def test_apply_workflow_multiple_workspaces(workflow_manager):

@@ -1,11 +1,10 @@
-import time
 import logging
 import typer
 from typing import Dict, Any
 
 from .workspace import WorkspaceManager
 from .app_launcher import AppLauncher
-from .errors import WorkspaceError, AppLaunchError
+from .errors import AppLaunchError
 
 logger = logging.getLogger(__name__)
 
@@ -31,67 +30,39 @@ class WorkflowManager:
         Raises:
             WorkspaceError: If a workspace switch fails.
         """
-        description = workflow_data.get("description", "")
-        if description:
-            typer.echo(f"Workflow: {description}")
-            logger.info(f"Applying workflow: {description}")
-
-        workspaces = workflow_data.get("workspaces", [])
-        if not workspaces:
-            typer.echo(
-                typer.style("Warning:", fg=typer.colors.YELLOW)
-                + " Workflow contains no workspaces"
-            )
+        if not workflow_data.get("workspaces"):
             logger.warning("Workflow contains no workspaces")
-            return True
 
-        overall_success = True
-        for workspace in workspaces:
-            target = workspace.get("target")
+        if "description" in workflow_data:
+            typer.echo(f"Workflow: {workflow_data['description']}")
+
+        success = True
+
+        for workspace in workflow_data.get("workspaces", []):
+            target = workspace["target"]
+            apps = workspace.get("apps", [])
 
             typer.echo(f"--> Switching to workspace {target}...")
-            logger.info(f"Switching to workspace {target}")
+            if not self.workspace_mgr.switch(target):
+                typer.secho("Error: Failed to switch workspaces", fg="red")
+                success = False
+                continue  # Don't try to launch apps if workspace switch failed
 
-            try:
-                self.workspace_mgr.switch(target)
-            except WorkspaceError as e:
-                raise e
-
-            time.sleep(0.2)
-
-            apps = workspace.get("apps", [])
-            if not apps:
-                logger.info(f"No apps defined for workspace {target}")
-                continue
-
-            for app in apps:
-                app_name = app.get("name", app.get("exec", "Unknown App"))
+            for app_config in apps:
+                app_name = app_config.get("name", app_config["exec"])
                 typer.echo(f"    -> Launching {app_name}...")
-                logger.info(f"Launching app: {app_name}")
-
                 try:
-                    self.app_launcher.launch_app(app)
+                    if not self.app_launcher.launch_app(app_config):
+                        typer.secho(f"Failed to launch {app_name}", fg="red")
+                        success = False
                 except AppLaunchError as e:
-                    err_msg = f"Failed to launch '{app_name}': {e}"
-                    typer.echo(
-                        typer.style(f"      Error: {err_msg}", fg=typer.colors.RED)
-                    )
-                    logger.error(err_msg)
-                    overall_success = False
+                    typer.secho(str(e), fg="red")
+                    success = False
 
-                time.sleep(0.1)
-
-        if overall_success:
-            typer.echo(
-                typer.style("✓ Workflow applied successfully", fg=typer.colors.GREEN)
-            )
+        if success:
+            typer.secho("✓ Workflow applied successfully", fg="green")
         else:
-            typer.echo(
-                typer.style(
-                    "⚠ Workflow applied, but some apps failed to launch.",
-                    fg=typer.colors.YELLOW,
-                )
-            )
+            typer.secho("⚠ Workflow completed with errors", fg="yellow")
 
         logger.info("Workflow application process finished.")
-        return True
+        return success
