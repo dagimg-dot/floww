@@ -1,11 +1,12 @@
 import logging
 import typer
-from typing import Dict, Any
+from typing import Dict, Any, List
 import time  # Import the time module
 
 from .workspace import WorkspaceManager
 from .app_launcher import AppLauncher
 from .errors import AppLaunchError
+from .config import ConfigManager  # Add this import
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class WorkflowManager:
     def __init__(self):
         self.workspace_mgr = WorkspaceManager()
         self.app_launcher = AppLauncher()
+        self.config_mgr = ConfigManager()  # Add ConfigManager
 
     def apply(self, workflow_data: Dict[str, Any]) -> bool:
         """
@@ -31,6 +33,16 @@ class WorkflowManager:
         Raises:
             WorkspaceError: If a workspace switch fails.
         """
+        # Get timing configuration from the pre-loaded config
+        # Use get() with default fallbacks just in case config structure is unexpected
+        timing_config = self.config_mgr.get_timing_config()
+        workspace_switch_wait = timing_config.get("workspace_switch_wait", 2)
+        app_launch_wait = timing_config.get("app_launch_wait", 1)
+        respect_app_wait = timing_config.get("respect_app_wait", True)
+        max_app_wait_time = timing_config.get(
+            "max_app_wait_time", 3
+        )  # Max seconds to wait for app windows
+
         if not workflow_data.get("workspaces"):
             logger.warning("Workflow contains no workspaces")
 
@@ -38,10 +50,9 @@ class WorkflowManager:
             typer.echo(f"Workflow: {workflow_data['description']}")
 
         success = True
+        num_workspaces = len(workflow_data.get("workspaces", []))
 
-        for workspace_index, workspace in enumerate(
-            workflow_data.get("workspaces", [])
-        ):
+        for workspace_idx, workspace in enumerate(workflow_data.get("workspaces", [])):
             target = workspace["target"]
             apps = workspace.get("apps", [])
 
@@ -49,40 +60,97 @@ class WorkflowManager:
             if not self.workspace_mgr.switch(target):
                 typer.secho(f"Error: Failed to switch workspace {target}", fg="red")
                 success = False
-                continue
+                continue  # Skip apps in this workspace if switch failed
 
-            for app_index, app_config in enumerate(apps):
+            # --- App Launch Loop ---
+            num_apps = len(apps)
+            last_app_wait_to_apply = 0.0  # Track wait from the actual last app executed
+            launched_app_count = 0  # Count of successfully launched apps
+
+            # Track window count before launching apps
+            initial_window_count = len(
+                self.workspace_mgr.get_windows_in_workspace(target)
+            )
+            logger.debug(
+                f"Initial window count in workspace {target}: {initial_window_count}"
+            )
+
+            for app_idx, app_config in enumerate(apps):
                 app_name = app_config.get("name", app_config["exec"])
                 typer.echo(f"    -> Launching {app_name}...")
                 app_launched = False
                 try:
                     app_launched = self.app_launcher.launch_app(app_config)
-                    if not app_launched:
+                    if app_launched:
+                        launched_app_count += 1
+                    else:
                         typer.secho(f"    ✗ Failed to launch {app_name}", fg="red")
                         success = False
                 except AppLaunchError as e:
                     typer.secho(f"    ✗ Error launching {app_name}: {e}", fg="red")
                     success = False
 
-                # Check for wait time after launching the app
-                wait_time = app_config.get("wait", None)
-                # Only wait if the app launch didn't immediately fail
-                if app_launched and wait_time is not None:
-                    try:
-                        wait_seconds = float(wait_time)
-                        if wait_seconds > 0:
-                            typer.echo(
-                                f"    ... Waiting {wait_seconds:.1f}s before next action..."
-                            )
-                            time.sleep(wait_seconds)
-                        elif wait_seconds < 0:
+                # --- App Wait Logic (Before Next App) ---
+                is_last_app_in_list = app_idx == num_apps - 1
+
+                if app_launched:
+                    current_app_wait = 0.0
+                    app_wait_config = (
+                        app_config.get("wait") if respect_app_wait else None
+                    )
+
+                    # Determine wait time for *this* app
+                    if app_wait_config is not None:
+                        try:
+                            wait_seconds = float(app_wait_config)
+                            if wait_seconds >= 0:
+                                current_app_wait = wait_seconds
+                            else:
+                                logger.warning(
+                                    f"Invalid negative wait time ({app_wait_config}) for app '{app_name}', ignoring."
+                                )
+                        except (ValueError, TypeError):
                             logger.warning(
-                                f"Invalid negative wait time ({wait_seconds}s) for app '{app_name}', ignoring."
+                                f"Invalid wait time ('{app_wait_config}') for app '{app_name}', ignoring."
                             )
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            f"Invalid wait time ('{wait_time}') for app '{app_name}', ignoring."
+                    elif (
+                        not is_last_app_in_list
+                    ):  # Apply default only if NOT the last app
+                        current_app_wait = app_launch_wait
+
+                    # Perform the wait *unless* it's the very last app overall
+                    if current_app_wait > 0 and not (
+                        is_last_app_in_list and workspace_idx == num_workspaces - 1
+                    ):
+                        typer.echo(
+                            f"    ... Waiting {current_app_wait:.1f}s before next action..."
                         )
+                        time.sleep(current_app_wait)
+
+                    # Store the wait time if it was the last app in the list for potential use later
+                    if is_last_app_in_list:
+                        last_app_wait_to_apply = current_app_wait
+
+            # --- Workspace Wait Logic (AFTER all apps in the workspace) ---
+            is_last_workspace = workspace_idx == num_workspaces - 1
+
+            # Only apply workspace wait if NOT the last workspace
+            if not is_last_workspace:
+                # Use the specific wait from the actual last app if it had one, otherwise use the global workspace wait
+                final_wait = (
+                    last_app_wait_to_apply
+                    if last_app_wait_to_apply > 0
+                    else workspace_switch_wait
+                )
+
+                if final_wait > 0:
+                    wait_reason = (
+                        "last app" if last_app_wait_to_apply > 0 else "workspace switch"
+                    )
+                    typer.echo(
+                        f"    ... Waiting {final_wait:.1f}s (due to {wait_reason}) before next workspace..."
+                    )
+                    time.sleep(final_wait)
 
         if success:
             typer.secho("✓ Workflow applied successfully", fg="green")

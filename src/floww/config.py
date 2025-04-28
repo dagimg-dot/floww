@@ -12,19 +12,93 @@ logger = logging.getLogger(__name__)
 class ConfigManager:
     """Handles loading and initializing configuration and workflows."""
 
+    # Default configuration settings
+    DEFAULT_CONFIG = {
+        "timing": {
+            "workspace_switch_wait": 4,     # Seconds to wait AFTER apps in a workspace before switching
+            "app_launch_wait": 1,           # Default seconds to wait after launching each app (if not last)
+            "respect_app_wait": True        # Whether to use app-specific 'wait' values
+        },
+        # Add other future config sections here
+    }
+
     def __init__(self, config_path: Path = None):
-        # Allow override, else respect XDG_CONFIG_HOME or default to ~/.config
         if config_path:
             self.config_path = config_path
         else:
-            xdg_config = os.environ.get("XDG_CONFIG_HOME")
-            logger.debug(f"XDG_CONFIG_HOME: {xdg_config}")
-            base = Path(xdg_config if xdg_config else Path.home() / ".config")
-            logger.debug(f"Base config path: {base}")
-            self.config_path = base / "floww"
-            logger.debug(f"Final config path: {self.config_path}")
+            # Determine base config directory respecting XDG standard
+            xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+            base_dir = (
+                Path(xdg_config_home) if xdg_config_home else Path.home() / ".config"
+            )
+            self.config_path = base_dir / "floww"
+            logger.debug(f"Using default config path: {self.config_path}")
+
+        # Define file and directory paths based on the determined config_path
         self.config_file = self.config_path / "config.yaml"
         self.workflows_dir = self.config_path / "workflows"
+
+        # Load the configuration immediately
+        self.config = self._load_and_merge_config()
+
+    def _load_and_merge_config(self) -> Dict[str, Any]:
+        """Loads user config and merges it with defaults."""
+        user_config = self._load_main_config_file() 
+        
+        merged_config = yaml.safe_load(yaml.dump(self.DEFAULT_CONFIG)) 
+
+        if isinstance(user_config.get("timing"), dict):
+            user_timing = user_config["timing"]
+            for key, default_value in self.DEFAULT_CONFIG["timing"].items():
+                 if key in user_timing:
+                    value = user_timing[key]
+                    # Validate and update merged_config['timing'][key]
+                    if key in ["workspace_switch_wait", "app_launch_wait"]:
+                        try:
+                            float_value = float(value)
+                            if float_value >= 0:
+                                merged_config["timing"][key] = float_value
+                            else:
+                                logger.warning(f"Invalid negative timing value for '{key}' ({value}). Using default ({default_value}).")
+                        except (ValueError, TypeError):
+                             logger.warning(f"Invalid non-numeric timing value for '{key}' ('{value}'). Using default ({default_value}).")
+                    elif key == "respect_app_wait":
+                        if isinstance(value, bool):
+                            merged_config["timing"][key] = value
+                        else:
+                             logger.warning(f"Invalid non-boolean value for '{key}' ('{value}'). Using default ({default_value}).")
+
+        logger.debug(f"Final merged configuration: {merged_config}")
+        return merged_config
+
+    def _load_main_config_file(self) -> Dict[str, Any]: # Renamed from _load_main_config
+        """Loads the main config.yaml file. Returns empty dict if not found or invalid."""
+        if not self.config_file.is_file():
+            logger.debug(f"Main config file not found: {self.config_file}")
+            return {}
+
+        try:
+            with open(self.config_file, "r") as f:
+                config_data = yaml.safe_load(f)
+                # Ensure it's a dict, return empty if not (e.g., just a string in the file)
+                if not isinstance(config_data, dict):
+                    logger.warning(
+                        f"Invalid format in config file {self.config_file}: Expected a dictionary (mapping), found {type(config_data)}. Ignoring."
+                    )
+                    return {}
+                logger.debug(f"Successfully loaded main config from {self.config_file}")
+                return config_data
+        except yaml.YAMLError as e:
+            logger.error(f"Invalid YAML in main config file {self.config_file}: {e}")
+            return {}
+        except OSError as e:
+            logger.error(f"Could not read main config file {self.config_file}: {e}")
+            return {}
+        except Exception as e:
+            logger.error(
+                f"An unexpected error occurred loading main config {self.config_file}: {e}"
+            )
+            return {}
 
     def init(self, create_example: bool = False):
         """Create config directory, default config.yaml, and workflows directory."""
@@ -242,3 +316,17 @@ class ConfigManager:
     def list_workflows(self) -> List[str]:
         """Return list of workflow file names (without extension)."""
         return self.list_workflow_names()
+
+    def get_config(self) -> Dict[str, Any]:
+         """Returns the currently loaded and merged configuration."""
+         return self.config # Return the already loaded config
+
+    def get_timing_config(self) -> dict:
+        """
+        Get timing configuration settings from the loaded config.
+
+        Returns:
+            dict: Dictionary with timing configuration values
+        """
+        # Now just returns the relevant part of the pre-loaded config
+        return self.config.get("timing", yaml.safe_load(yaml.dump(self.DEFAULT_CONFIG["timing"])))
