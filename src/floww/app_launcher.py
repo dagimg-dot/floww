@@ -1,5 +1,6 @@
 import subprocess
 
+
 class AppLauncher:
     """Handles launching applications via subprocess.Popen."""
 
@@ -15,4 +16,4 @@ class AppLauncher:
             return False
         except Exception as e:
             print(f"Error launching {executable}: {e}")
-            return False 
+            return False

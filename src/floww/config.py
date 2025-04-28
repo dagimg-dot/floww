@@ -1,11 +1,18 @@
+import os
 import yaml
 from pathlib import Path
+
 
 class ConfigManager:
     """Handles loading and initializing configuration and workflows."""
 
-    def __init__(self, config_path: Path = Path.home() / ".config" / "floww"):
-        self.config_path = config_path
+    def __init__(self, config_path: Path = None):
+        # Allow override, else respect XDG_CONFIG_HOME or default to ~/.config
+        if config_path:
+            self.config_path = config_path
+        else:
+            base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+            self.config_path = base / "floww"
         self.config_file = self.config_path / "config.yaml"
         self.workflows_dir = self.config_path / "workflows"
 
@@ -26,4 +33,4 @@ class ConfigManager:
         """Load a workflow by name."""
         path = self.workflows_dir / f"{name}.yaml"
         with open(path) as f:
-            return yaml.safe_load(f) 
+            return yaml.safe_load(f)

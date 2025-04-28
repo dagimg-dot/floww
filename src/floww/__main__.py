@@ -1,6 +1,4 @@
-"""Entry point for the floww CLI when run as a module."""
-
-from .cli import app
+from floww.cli import app
 
 
 def main():

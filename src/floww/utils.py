@@ -15,4 +15,4 @@ def run_command(command: list[str]) -> bool:
         return False
     except FileNotFoundError:
         print(f"Error: Command not found - {command[0]}")
-        return False 
+        return False
