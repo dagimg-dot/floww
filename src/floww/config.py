@@ -4,13 +4,9 @@ from pathlib import Path
 from typing import Dict, List, Any
 import logging
 
+from .errors import ConfigError, WorkflowNotFoundError, WorkflowSchemaError
+
 logger = logging.getLogger(__name__)
-
-
-class WorkflowSchemaError(ValueError):
-    """Custom exception for workflow validation errors."""
-
-    pass
 
 
 class ConfigManager:
@@ -32,52 +28,70 @@ class ConfigManager:
 
     def init(self, create_example: bool = False):
         """Create config directory, default config.yaml, and workflows directory."""
-        self.config_path.mkdir(parents=True, exist_ok=True)
-        if not self.config_file.exists():
-            default_content = {"workspaces": {}}
-            with open(self.config_file, "w") as f:
-                yaml.dump(default_content, f, default_flow_style=False)
-        self.workflows_dir.mkdir(exist_ok=True)
+        try:
+            self.config_path.mkdir(parents=True, exist_ok=True)
+            if not self.config_file.exists():
+                default_content = {"workspaces": {}}
+                with open(self.config_file, "w") as f:
+                    yaml.dump(default_content, f, default_flow_style=False)
+            self.workflows_dir.mkdir(exist_ok=True)
 
-        if create_example:
-            sample_workflow_path = self.workflows_dir / "example.yaml"
-            if not any(self.workflows_dir.glob("*.yaml")):
-                sample_content = {
-                    "description": "An example workflow.",
-                    "workspaces": [
-                        {
-                            "target": 1,
-                            "apps": [
-                                {
-                                    "name": "Editor",
-                                    "exec": "gedit",
-                                    "args": ["~/Notes/scratch.txt"],
-                                },
-                                {"name": "Terminal", "exec": "gnome-terminal"},
-                            ],
-                        },
-                        {
-                            "target": 2,
-                            "apps": [
-                                {
-                                    "name": "Browser",
-                                    "exec": "firefox",
-                                    "args": ["https://duckduckgo.com"],
-                                }
-                            ],
-                        },
-                    ],
-                }
-                with open(sample_workflow_path, "w") as f:
-                    yaml.dump(
-                        sample_content, f, default_flow_style=False, sort_keys=False
-                    )
+            if create_example:
+                sample_workflow_path = self.workflows_dir / "example.yaml"
+                if not any(self.workflows_dir.glob("*.yaml")):
+                    sample_content = {
+                        "description": "An example workflow.",
+                        "workspaces": [
+                            {
+                                "target": 1,
+                                "apps": [
+                                    {
+                                        "name": "Editor",
+                                        "exec": "gedit",
+                                        "args": ["~/Notes/scratch.txt"],
+                                    },
+                                    {"name": "Terminal", "exec": "gnome-terminal"},
+                                ],
+                            },
+                            {
+                                "target": 2,
+                                "apps": [
+                                    {
+                                        "name": "Browser",
+                                        "exec": "firefox",
+                                        "args": ["https://duckduckgo.com"],
+                                    }
+                                ],
+                            },
+                        ],
+                    }
+                    with open(sample_workflow_path, "w") as f:
+                        yaml.dump(
+                            sample_content, f, default_flow_style=False, sort_keys=False
+                        )
+        except OSError as e:
+            raise ConfigError(f"Failed to initialize config directory: {e}") from e
+        except yaml.YAMLError as e:
+            raise ConfigError(
+                f"Failed to write default config/example workflow: {e}"
+            ) from e
+        except Exception as e:
+            # Catch broader exceptions during file operations
+            raise ConfigError(
+                f"An unexpected error occurred during initialization: {e}"
+            ) from e
 
     def list_workflow_names(self) -> List[str]:
         """Return list of workflow file names (without extension), sorted."""
         if not self.workflows_dir.is_dir():
             return []
-        return sorted([p.stem for p in self.workflows_dir.glob("*.yaml")])
+        try:
+            return sorted([p.stem for p in self.workflows_dir.glob("*.yaml")])
+        except OSError as e:
+            # Handle potential permission errors during listing
+            raise ConfigError(
+                f"Failed to list workflows in {self.workflows_dir}: {e}"
+            ) from e
 
     def validate_workflow(
         self, workflow_name: str, workflow_data: Dict[str, Any]
@@ -197,14 +211,14 @@ class ConfigManager:
             A dictionary representing the parsed and validated workflow.
 
         Raises:
-            FileNotFoundError: If the workflow file doesn't exist.
-            yaml.YAMLError: If the YAML is invalid.
+            WorkflowNotFoundError: If the workflow file doesn't exist.
+            ConfigError: If the YAML is invalid or file cannot be read.
             WorkflowSchemaError: If the workflow doesn't adhere to the expected schema.
         """
         workflow_file = self.workflows_dir / f"{workflow_name}.yaml"
 
         if not workflow_file.is_file():
-            raise FileNotFoundError(
+            raise WorkflowNotFoundError(
                 f"Workflow '{workflow_name}' not found at: {workflow_file}"
             )
 
@@ -212,15 +226,19 @@ class ConfigManager:
             with open(workflow_file, "r") as f:
                 workflow_data = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            raise yaml.YAMLError(f"Error parsing YAML file {workflow_file}: {e}")
+            raise ConfigError(f"Invalid YAML in workflow '{workflow_name}': {e}") from e
+        except OSError as e:
+            raise ConfigError(
+                f"Could not read workflow file '{workflow_name}': {e}"
+            ) from e
         except Exception as e:
-            raise IOError(f"Could not read workflow file {workflow_file}: {e}")
+            raise ConfigError(
+                f"An unexpected error occurred loading workflow '{workflow_name}': {e}"
+            ) from e
 
         self.validate_workflow(workflow_name, workflow_data)
-
         return workflow_data
 
-    # Keep the original method name for backward compatibility
     def list_workflows(self) -> List[str]:
         """Return list of workflow file names (without extension)."""
         return self.list_workflow_names()
