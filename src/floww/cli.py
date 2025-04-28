@@ -2,6 +2,7 @@ import typer
 import questionary
 import logging
 from typing import Optional
+import yaml
 
 from . import __version__ as VERSION
 from .config import ConfigManager, WorkflowSchemaError
@@ -31,7 +32,11 @@ logger = logging.getLogger(__name__)
 
 
 @app.command()
-def init(create_example: bool = typer.Option(False, "--example", "-e", help="Create an example workflow")):
+def init(
+    create_example: bool = typer.Option(
+        False, "--example", "-e", help="Create an example workflow"
+    ),
+):
     """Initialize configuration directory and workflows folder."""
     cfg = ConfigManager()
     cfg.init(create_example=create_example)
@@ -49,6 +54,41 @@ def list_workflows():
         typer.echo("Available workflows:")
         for name in names:
             typer.echo(f"  - {name}")
+
+
+@app.command()
+def validate(name: str = typer.Argument(..., help="Workflow name to validate")):
+    """Validate a workflow's schema without applying it."""
+    cfg = ConfigManager()
+
+    try:
+        typer.echo(f"Validating workflow: {name}")
+        workflow_file = cfg.workflows_dir / f"{name}.yaml"
+
+        if not workflow_file.is_file():
+            typer.echo(f"Error: Workflow '{name}' not found at: {workflow_file}")
+            raise typer.Exit(1)
+
+        try:
+            with open(workflow_file, "r") as f:
+                workflow_data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            typer.echo(f"Error: Invalid YAML format in {workflow_file}: {e}")
+            raise typer.Exit(1)
+        except Exception as e:
+            typer.echo(f"Error: Could not read workflow file {workflow_file}: {e}")
+            raise typer.Exit(1)
+
+        cfg.validate_workflow(name, workflow_data)
+        typer.echo("✓ Workflow is valid")
+
+    except WorkflowSchemaError as e:
+        typer.echo(f"Error: Invalid workflow format: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Error validating workflow: {e}")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1)
 
 
 @app.command()

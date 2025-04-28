@@ -79,36 +79,19 @@ class ConfigManager:
             return []
         return sorted([p.stem for p in self.workflows_dir.glob("*.yaml")])
 
-    def load_workflow(self, workflow_name: str) -> Dict[str, Any]:
+    def validate_workflow(
+        self, workflow_name: str, workflow_data: Dict[str, Any]
+    ) -> None:
         """
-        Loads and validates a workflow YAML file from the workflows directory.
+        Validates a workflow data against the expected schema.
 
         Args:
-            workflow_name: The name of the workflow file (without the .yaml extension).
-
-        Returns:
-            A dictionary representing the parsed and validated workflow.
+            workflow_name: The name of the workflow (used for error messages).
+            workflow_data: The workflow data to validate.
 
         Raises:
-            FileNotFoundError: If the workflow file doesn't exist.
-            yaml.YAMLError: If the YAML is invalid.
             WorkflowSchemaError: If the workflow doesn't adhere to the expected schema.
         """
-        workflow_file = self.workflows_dir / f"{workflow_name}.yaml"
-
-        if not workflow_file.is_file():
-            raise FileNotFoundError(
-                f"Workflow '{workflow_name}' not found at: {workflow_file}"
-            )
-
-        try:
-            with open(workflow_file, "r") as f:
-                workflow_data = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            raise yaml.YAMLError(f"Error parsing YAML file {workflow_file}: {e}")
-        except Exception as e:
-            raise IOError(f"Could not read workflow file {workflow_file}: {e}")
-
         if workflow_data is None:
             raise WorkflowSchemaError(
                 f"Workflow file '{workflow_name}' is empty or contains only null."
@@ -142,6 +125,11 @@ class ConfigManager:
                     f"Item at {ws_id} is missing the required 'target' key."
                 )
 
+            if not isinstance(ws["target"], int) or ws["target"] < 0:
+                raise WorkflowSchemaError(
+                    f"The 'target' key for {ws_id} must be an integer greater than or equal to 0."
+                )
+
             if "apps" not in ws:
                 raise WorkflowSchemaError(
                     f"Workspace definition for {ws_id} is missing the required 'apps' key."
@@ -159,10 +147,17 @@ class ConfigManager:
 
                 if not isinstance(app, dict):
                     raise WorkflowSchemaError(f"Item at {app_id} must be a dictionary.")
+
+                if "name" not in app:
+                    raise WorkflowSchemaError(
+                        f"App definition for {app_id} is missing the required 'name' key."
+                    )
+
                 if "exec" not in app:
                     raise WorkflowSchemaError(
                         f"App definition for {app_id} is missing the required 'exec' key."
                     )
+
                 if not isinstance(app.get("exec"), str) or not app["exec"].strip():
                     raise WorkflowSchemaError(
                         f"The 'exec' key for {app_id} must be a non-empty string."
@@ -178,6 +173,7 @@ class ConfigManager:
                     raise WorkflowSchemaError(
                         f"The 'type' key for {app_id}, if present, must be a string."
                     )
+
                 if app_type not in ["binary", "flatpak", "snap"]:
                     raise WorkflowSchemaError(
                         f"The 'type' key for {app_id} must be one of 'binary', 'flatpak', 'snap', but got '{app_type}'."
@@ -189,6 +185,38 @@ class ConfigManager:
             raise WorkflowSchemaError(
                 f"The 'description' in workflow '{workflow_name}', if present, must be a string."
             )
+
+    def load_workflow(self, workflow_name: str) -> Dict[str, Any]:
+        """
+        Loads and validates a workflow YAML file from the workflows directory.
+
+        Args:
+            workflow_name: The name of the workflow file (without the .yaml extension).
+
+        Returns:
+            A dictionary representing the parsed and validated workflow.
+
+        Raises:
+            FileNotFoundError: If the workflow file doesn't exist.
+            yaml.YAMLError: If the YAML is invalid.
+            WorkflowSchemaError: If the workflow doesn't adhere to the expected schema.
+        """
+        workflow_file = self.workflows_dir / f"{workflow_name}.yaml"
+
+        if not workflow_file.is_file():
+            raise FileNotFoundError(
+                f"Workflow '{workflow_name}' not found at: {workflow_file}"
+            )
+
+        try:
+            with open(workflow_file, "r") as f:
+                workflow_data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise yaml.YAMLError(f"Error parsing YAML file {workflow_file}: {e}")
+        except Exception as e:
+            raise IOError(f"Could not read workflow file {workflow_file}: {e}")
+
+        self.validate_workflow(workflow_name, workflow_data)
 
         return workflow_data
 
