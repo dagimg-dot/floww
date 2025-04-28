@@ -10,19 +10,14 @@ def workflow_manager():
 
 
 def test_apply_empty_workflow(workflow_manager):
-    workflow_data = {
-        "workspaces": []
-    }
+    workflow_data = {"workspaces": []}
 
     success = workflow_manager.apply(workflow_data)
     assert success is True
 
 
 def test_apply_workflow_with_description(workflow_manager):
-    workflow_data = {
-        "description": "Test workflow",
-        "workspaces": []
-    }
+    workflow_data = {"description": "Test workflow", "workspaces": []}
 
     with patch("floww.workflow_manager.typer.echo") as mock_echo:
         success = workflow_manager.apply(workflow_data)
@@ -31,14 +26,7 @@ def test_apply_workflow_with_description(workflow_manager):
 
 
 def test_apply_workflow_switch_workspace_failure(workflow_manager):
-    workflow_data = {
-        "workspaces": [
-            {
-                "target": 1,
-                "apps": []
-            }
-        ]
-    }
+    workflow_data = {"workspaces": [{"target": 1, "apps": []}]}
 
     # Mock the workspace manager to fail switching
     workflow_manager.workspace_mgr.switch = MagicMock(return_value=False)
@@ -55,8 +43,8 @@ def test_apply_workflow_launch_apps(workflow_manager):
                 "target": 1,
                 "apps": [
                     {"name": "App1", "exec": "app1"},
-                    {"name": "App2", "exec": "app2", "args": ["--flag"]}
-                ]
+                    {"name": "App2", "exec": "app2", "args": ["--flag"]},
+                ],
             }
         ]
     }
@@ -75,8 +63,12 @@ def test_apply_workflow_launch_apps(workflow_manager):
 
         # Verify apps were launched
         assert workflow_manager.app_launcher.launch_app.call_count == 2
-        workflow_manager.app_launcher.launch_app.assert_any_call({"name": "App1", "exec": "app1"})
-        workflow_manager.app_launcher.launch_app.assert_any_call({"name": "App2", "exec": "app2", "args": ["--flag"]})
+        workflow_manager.app_launcher.launch_app.assert_any_call(
+            {"name": "App1", "exec": "app1"}
+        )
+        workflow_manager.app_launcher.launch_app.assert_any_call(
+            {"name": "App2", "exec": "app2", "args": ["--flag"]}
+        )
 
         # Verify user feedback
         mock_echo.assert_any_call("Switching to workspace 1...")
@@ -92,8 +84,8 @@ def test_apply_workflow_app_launch_failure(workflow_manager):
                 "target": 1,
                 "apps": [
                     {"name": "App1", "exec": "app1"},
-                    {"name": "App2", "exec": "app2"}
-                ]
+                    {"name": "App2", "exec": "app2"},
+                ],
             }
         ]
     }
@@ -116,14 +108,8 @@ def test_apply_workflow_app_launch_failure(workflow_manager):
 def test_apply_workflow_multiple_workspaces(workflow_manager):
     workflow_data = {
         "workspaces": [
-            {
-                "target": 1,
-                "apps": [{"name": "App1", "exec": "app1"}]
-            },
-            {
-                "target": 2,
-                "apps": [{"name": "App2", "exec": "app2"}]
-            }
+            {"target": 1, "apps": [{"name": "App1", "exec": "app1"}]},
+            {"target": 2, "apps": [{"name": "App2", "exec": "app2"}]},
         ]
     }
 
@@ -141,5 +127,9 @@ def test_apply_workflow_multiple_workspaces(workflow_manager):
 
     # Verify app launches
     assert workflow_manager.app_launcher.launch_app.call_count == 2
-    workflow_manager.app_launcher.launch_app.assert_any_call({"name": "App1", "exec": "app1"})
-    workflow_manager.app_launcher.launch_app.assert_any_call({"name": "App2", "exec": "app2"})
+    workflow_manager.app_launcher.launch_app.assert_any_call(
+        {"name": "App1", "exec": "app1"}
+    )
+    workflow_manager.app_launcher.launch_app.assert_any_call(
+        {"name": "App2", "exec": "app2"}
+    )

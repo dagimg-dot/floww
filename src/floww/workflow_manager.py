@@ -35,7 +35,7 @@ class WorkflowManager:
         if not workspaces:
             typer.echo("Warning: Workflow contains no workspaces")
             logger.warning("Workflow contains no workspaces")
-            return True  
+            return True
 
         for workspace in workspaces:
             target = workspace.get("target")

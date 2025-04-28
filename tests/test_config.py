@@ -62,12 +62,7 @@ def test_load_workflow(tmp_path):
     workflows_dir = base_dir / "workflows"
     wf_path = workflows_dir / "demo.yaml"
     data = {
-        "workspaces": [
-            {
-                "target": 0,
-                "apps": [{"name": "Terminal", "exec": "xterm"}]
-            }
-        ]
+        "workspaces": [{"target": 0, "apps": [{"name": "Terminal", "exec": "xterm"}]}]
     }
     wf_path.write_text(yaml.dump(data))
 
@@ -77,7 +72,7 @@ def test_load_workflow(tmp_path):
         "workspaces": [
             {
                 "target": 0,
-                "apps": [{"name": "Terminal", "exec": "xterm", "type": "binary"}]
+                "apps": [{"name": "Terminal", "exec": "xterm", "type": "binary"}],
             }
         ]
     }
