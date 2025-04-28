@@ -96,8 +96,9 @@ def test_apply_workflow_app_launch_failure(workflow_manager):
         success = workflow_manager.apply(workflow_data)
         assert success is False
 
-        # Verify error messages
-        mock_secho.assert_any_call("Failed to launch App1", fg="red")
+        # Verify error messages with correct prefix
+        mock_secho.assert_any_call("    ✗ Failed to launch App1", fg="red")
+        mock_secho.assert_any_call("    ✗ Failed to launch App2", fg="red")
         mock_secho.assert_any_call("⚠ Workflow completed with errors", fg="yellow")
 
 
@@ -129,3 +130,63 @@ def test_apply_workflow_multiple_workspaces(workflow_manager):
     workflow_manager.app_launcher.launch_app.assert_any_call(
         {"name": "App2", "exec": "app2"}
     )
+
+
+def test_apply_workflow_with_wait(workflow_manager):
+    workflow_data = {
+        "workspaces": [
+            {
+                "target": 1,
+                "apps": [
+                    {"name": "App1", "exec": "app1", "wait": 0.5},
+                    {
+                        "name": "App2",
+                        "exec": "app2",
+                        "wait": "invalid",
+                    },  # Test invalid wait
+                    {"name": "App3", "exec": "app3"},  # No wait after last app
+                ],
+            }
+        ]
+    }
+
+    # Mock successful workspace switch and app launches
+    workflow_manager.workspace_mgr.switch = MagicMock(return_value=True)
+    workflow_manager.app_launcher.launch_app = MagicMock(return_value=True)
+
+    # Patch time.sleep and typer.echo/secho
+    with (
+        patch("floww.workflow_manager.time.sleep") as mock_sleep,
+        patch("floww.workflow_manager.typer.echo") as mock_echo,
+        patch("floww.workflow_manager.typer.secho") as mock_secho,
+    ):
+        success = workflow_manager.apply(workflow_data)
+        assert success is True  # Should succeed even with wait issues
+
+        # Verify workspace switch
+        workflow_manager.workspace_mgr.switch.assert_called_once_with(1)
+
+        # Verify app launches
+        assert workflow_manager.app_launcher.launch_app.call_count == 3
+        workflow_manager.app_launcher.launch_app.assert_any_call(
+            {"name": "App1", "exec": "app1", "wait": 0.5}
+        )
+        workflow_manager.app_launcher.launch_app.assert_any_call(
+            {"name": "App2", "exec": "app2", "wait": "invalid"}
+        )
+        workflow_manager.app_launcher.launch_app.assert_any_call(
+            {"name": "App3", "exec": "app3"}
+        )
+
+        # Verify time.sleep was called correctly for App1
+        mock_sleep.assert_called_once_with(0.5)
+
+        # Verify echo messages for launching and waiting
+        mock_echo.assert_any_call("    -> Launching App1...")
+        mock_echo.assert_any_call("    ... Waiting 0.5s before next action...")
+        mock_echo.assert_any_call("    -> Launching App2...")
+        # No wait message for invalid wait or last app
+        mock_echo.assert_any_call("    -> Launching App3...")
+
+        # Verify final success message
+        mock_secho.assert_any_call("✓ Workflow applied successfully", fg="green")

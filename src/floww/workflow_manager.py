@@ -1,6 +1,7 @@
 import logging
 import typer
 from typing import Dict, Any
+import time  # Import the time module
 
 from .workspace import WorkspaceManager
 from .app_launcher import AppLauncher
@@ -38,26 +39,50 @@ class WorkflowManager:
 
         success = True
 
-        for workspace in workflow_data.get("workspaces", []):
+        for workspace_index, workspace in enumerate(
+            workflow_data.get("workspaces", [])
+        ):
             target = workspace["target"]
             apps = workspace.get("apps", [])
 
             typer.echo(f"--> Switching to workspace {target}...")
             if not self.workspace_mgr.switch(target):
-                typer.secho("Error: Failed to switch workspaces", fg="red")
+                typer.secho(f"Error: Failed to switch workspace {target}", fg="red")
                 success = False
-                continue  # Don't try to launch apps if workspace switch failed
+                continue
 
-            for app_config in apps:
+            for app_index, app_config in enumerate(apps):
                 app_name = app_config.get("name", app_config["exec"])
                 typer.echo(f"    -> Launching {app_name}...")
+                app_launched = False
                 try:
-                    if not self.app_launcher.launch_app(app_config):
-                        typer.secho(f"Failed to launch {app_name}", fg="red")
+                    app_launched = self.app_launcher.launch_app(app_config)
+                    if not app_launched:
+                        typer.secho(f"    ✗ Failed to launch {app_name}", fg="red")
                         success = False
                 except AppLaunchError as e:
-                    typer.secho(str(e), fg="red")
+                    typer.secho(f"    ✗ Error launching {app_name}: {e}", fg="red")
                     success = False
+
+                # Check for wait time after launching the app
+                wait_time = app_config.get("wait", None)
+                # Only wait if the app launch didn't immediately fail
+                if app_launched and wait_time is not None:
+                    try:
+                        wait_seconds = float(wait_time)
+                        if wait_seconds > 0:
+                            typer.echo(
+                                f"    ... Waiting {wait_seconds:.1f}s before next action..."
+                            )
+                            time.sleep(wait_seconds)
+                        elif wait_seconds < 0:
+                            logger.warning(
+                                f"Invalid negative wait time ({wait_seconds}s) for app '{app_name}', ignoring."
+                            )
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            f"Invalid wait time ('{wait_time}') for app '{app_name}', ignoring."
+                        )
 
         if success:
             typer.secho("✓ Workflow applied successfully", fg="green")
