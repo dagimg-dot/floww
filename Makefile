@@ -16,10 +16,10 @@ install-deps:
 	uv pip install -e .[test]
 
 clean:
-	rm -rf dist build *.spec __pycache__ .pytest_cache test_config
+	rm -rf dist build *.spec __pycache__ .pytest_cache
 
 test:
-	PYTHONPATH=$(PYTHONPATH) XDG_CONFIG_HOME=tests/test_config pytest
+	PYTHONPATH=$(PYTHONPATH) XDG_CONFIG_HOME=$(shell pwd)/tests/test_config pytest -v
 
 build:
 	pyinstaller $(PYINSTALLER_OPTS) src/floww/__main__.py
