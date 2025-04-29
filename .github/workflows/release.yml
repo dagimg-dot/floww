@@ -1,0 +1,84 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: "Build Binary"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: ~/.cargo/bin/uv pip install .
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller \
+            --onefile \
+            --hidden-import shellingham.posix \
+            --name floww \
+            --clean \
+            --noconfirm \
+            --strip \
+            --log-level WARN \
+            --upx-dir /usr/bin --upx-exclude '*.so' \
+            --exclude-module pytest \
+            --exclude-module tests \
+            src/floww/__main__.py
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Archive binary
+        run: |
+          cd dist
+          tar czvf floww-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz floww
+          cd ..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: floww-binary-${{ steps.get_version.outputs.VERSION }}
+          path: dist/floww-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz
+
+  release:
+    name: "Create GitHub Release"
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Download Binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: floww-binary-${{ steps.get_version.outputs.VERSION }}
+
+      - name: List files
+        run: ls -lR
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: floww-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz
+          generate_release_notes: true
