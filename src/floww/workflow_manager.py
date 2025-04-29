@@ -1,12 +1,12 @@
 import logging
 import typer
-from typing import Dict, Any, List
-import time  # Import the time module
+from typing import Dict, Any
+import time
 
 from .workspace import WorkspaceManager
 from .app_launcher import AppLauncher
 from .errors import AppLaunchError
-from .config import ConfigManager  # Add this import
+from .config import ConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class WorkflowManager:
     def __init__(self):
         self.workspace_mgr = WorkspaceManager()
         self.app_launcher = AppLauncher()
-        self.config_mgr = ConfigManager()  # Add ConfigManager
+        self.config_mgr = ConfigManager()
 
     def apply(self, workflow_data: Dict[str, Any]) -> bool:
         """
@@ -33,15 +33,10 @@ class WorkflowManager:
         Raises:
             WorkspaceError: If a workspace switch fails.
         """
-        # Get timing configuration from the pre-loaded config
-        # Use get() with default fallbacks just in case config structure is unexpected
         timing_config = self.config_mgr.get_timing_config()
         workspace_switch_wait = timing_config.get("workspace_switch_wait", 2)
         app_launch_wait = timing_config.get("app_launch_wait", 1)
         respect_app_wait = timing_config.get("respect_app_wait", True)
-        max_app_wait_time = timing_config.get(
-            "max_app_wait_time", 3
-        )  # Max seconds to wait for app windows
 
         if not workflow_data.get("workspaces"):
             logger.warning("Workflow contains no workspaces")
@@ -60,20 +55,9 @@ class WorkflowManager:
             if not self.workspace_mgr.switch(target):
                 typer.secho(f"Error: Failed to switch workspace {target}", fg="red")
                 success = False
-                continue  # Skip apps in this workspace if switch failed
+                continue
 
-            # --- App Launch Loop ---
             num_apps = len(apps)
-            last_app_wait_to_apply = 0.0  # Track wait from the actual last app executed
-            launched_app_count = 0  # Count of successfully launched apps
-
-            # Track window count before launching apps
-            initial_window_count = len(
-                self.workspace_mgr.get_windows_in_workspace(target)
-            )
-            logger.debug(
-                f"Initial window count in workspace {target}: {initial_window_count}"
-            )
 
             for app_idx, app_config in enumerate(apps):
                 app_name = app_config.get("name", app_config["exec"])
@@ -81,16 +65,13 @@ class WorkflowManager:
                 app_launched = False
                 try:
                     app_launched = self.app_launcher.launch_app(app_config)
-                    if app_launched:
-                        launched_app_count += 1
-                    else:
+                    if not app_launched:
                         typer.secho(f"    ✗ Failed to launch {app_name}", fg="red")
                         success = False
                 except AppLaunchError as e:
                     typer.secho(f"    ✗ Error launching {app_name}: {e}", fg="red")
                     success = False
 
-                # --- App Wait Logic (Before Next App) ---
                 is_last_app_in_list = app_idx == num_apps - 1
 
                 if app_launched:
@@ -99,7 +80,6 @@ class WorkflowManager:
                         app_config.get("wait") if respect_app_wait else None
                     )
 
-                    # Determine wait time for *this* app
                     if app_wait_config is not None:
                         try:
                             wait_seconds = float(app_wait_config)
@@ -113,12 +93,9 @@ class WorkflowManager:
                             logger.warning(
                                 f"Invalid wait time ('{app_wait_config}') for app '{app_name}', ignoring."
                             )
-                    elif (
-                        not is_last_app_in_list
-                    ):  # Apply default only if NOT the last app
+                    elif not is_last_app_in_list:
                         current_app_wait = app_launch_wait
 
-                    # Perform the wait *unless* it's the very last app overall
                     if current_app_wait > 0 and not (
                         is_last_app_in_list and workspace_idx == num_workspaces - 1
                     ):
@@ -131,7 +108,6 @@ class WorkflowManager:
                     if is_last_app_in_list:
                         last_app_wait_to_apply = current_app_wait
 
-            # --- Workspace Wait Logic (AFTER all apps in the workspace) ---
             is_last_workspace = workspace_idx == num_workspaces - 1
 
             # Only apply workspace wait if NOT the last workspace

@@ -179,7 +179,7 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
     except WorkspaceError as e:
         print_error(f"Workflow '{workflow_name}' failed: {e}")
         raise typer.Exit(1)
-    except questionary.exceptions.QuestionaryError as e:
+    except questionary.ValidationError as e:
         print_error(f"Interactive selection failed: {e}")
         raise typer.Exit(1)
     except Exception as e:
