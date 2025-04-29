@@ -201,6 +201,87 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
         raise typer.Exit(1)
 
 
+@app.command()
+def add(name: str = typer.Argument(..., help="Name for the new workflow")):
+    """Create a new workflow file with basic structure."""
+    check_initialized()
+    cfg = ConfigManager()
+
+    if "/" in name or "\\" in name:
+        print_error("Workflow name cannot contain path separators")
+        raise typer.Exit(1)
+
+    if name.startswith("."):
+        print_error("Workflow name cannot start with a dot")
+        raise typer.Exit(1)
+
+    if name.endswith(".yaml"):
+        print_error("Please provide the name without .yaml extension")
+        raise typer.Exit(1)
+
+    workflow_file = cfg.workflows_dir / f"{name}.yaml"
+    if workflow_file.exists():
+        print_error(f"Workflow '{name}' already exists")
+        raise typer.Exit(1)
+
+    workflow_content = {
+        "description": "A new workflow.",
+        "workspaces": [
+            {
+                "target": 0,
+                "apps": [{"name": "Example App", "exec": "app-name", "type": "binary"}],
+            }
+        ],
+    }
+
+    try:
+        with open(workflow_file, "w") as f:
+            yaml.dump(workflow_content, f, default_flow_style=False, sort_keys=False)
+        typer.echo(f"Created new workflow: {name}")
+    except OSError as e:
+        print_error(f"Failed to create workflow file: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        print_error("An unexpected error occurred while creating the workflow.")
+        logger.exception(f"Unexpected error creating workflow '{name}': {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def remove(
+    name: str = typer.Argument(..., help="Name of the workflow to remove"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+):
+    """Remove a workflow file."""
+    check_initialized()
+    cfg = ConfigManager()
+
+    workflow_file = cfg.workflows_dir / f"{name}.yaml"
+    if not workflow_file.is_file():
+        print_error(f"Workflow '{name}' not found")
+        raise typer.Exit(1)
+
+    if not force:
+        confirm = questionary.confirm(
+            f"Are you sure you want to remove workflow '{name}'?", default=False
+        ).ask()
+
+        if not confirm:
+            typer.echo("Operation cancelled")
+            raise typer.Exit(0)
+
+    try:
+        workflow_file.unlink()
+        typer.echo(f"Removed workflow: {name}")
+    except OSError as e:
+        print_error(f"Failed to remove workflow file: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        print_error("An unexpected error occurred while removing the workflow.")
+        logger.exception(f"Unexpected error removing workflow '{name}': {e}")
+        raise typer.Exit(1)
+
+
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
