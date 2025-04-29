@@ -6,6 +6,15 @@ from floww.config import ConfigManager
 
 
 @pytest.fixture(autouse=True)
+def reset_singleton():
+    """Reset the ConfigManager singleton between tests."""
+    original_instance = ConfigManager.instance
+    ConfigManager.instance = None
+    yield
+    ConfigManager.instance = original_instance
+
+
+@pytest.fixture(autouse=True)
 def set_xdg_config_home(tmp_path, monkeypatch):
     # Redirect config home to a temporary directory
     config_home = tmp_path / "config"
@@ -63,11 +72,25 @@ def test_validate_valid_workflow(set_xdg_config_home):
     """Test validating a valid workflow."""
     runner = CliRunner()
 
-    # Initialize config and create example workflow
+    # Initialize config
     result = runner.invoke(
-        app, ["init", "--example"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
+        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
     )
     assert result.exit_code == 0
+
+    # Create a valid workflow file
+    config_dir = set_xdg_config_home / "floww"
+    workflows_dir = config_dir / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+    example_workflow = workflows_dir / "example.yaml"
+    example_workflow.write_text("""
+description: "Example workflow"
+workspaces:
+  - target: 1
+    apps:
+      - name: "Terminal"
+        exec: "gnome-terminal"
+""")
 
     # Validate the example workflow
     result = runner.invoke(
@@ -110,12 +133,12 @@ def test_validate_invalid_workflow(set_xdg_config_home):
     # Create an invalid workflow file
     config_dir = set_xdg_config_home / "floww"
     workflows_dir = config_dir / "workflows"
+    workflows_dir.mkdir(parents=True, exist_ok=True)
     invalid_workflow = workflows_dir / "invalid.yaml"
     invalid_workflow.write_text("""
 description: "Invalid workflow"
 workspaces:
   - target: 1
-    # Missing required 'apps' key
 """)
 
     # Try to validate the invalid workflow
