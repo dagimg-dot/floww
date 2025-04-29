@@ -18,6 +18,10 @@ install-deps:
 clean:
 	rm -rf dist build *.spec __pycache__ .pytest_cache
 
+lint:
+	ruff check . --fix
+	ruff format .
+
 test:
 	PYTHONPATH=$(PYTHONPATH) XDG_CONFIG_HOME=$(shell pwd)/tests/test_config pytest -v
 
