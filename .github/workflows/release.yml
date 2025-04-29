@@ -25,7 +25,7 @@ jobs:
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Install dependencies
-        run: ~/.cargo/bin/uv pip install .
+        run: ~/.local/bin/uv pip install .
 
       - name: Build with PyInstaller
         run: |
