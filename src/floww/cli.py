@@ -116,41 +116,55 @@ def list_workflows():
 
 
 @app.command()
-def validate(name: str = typer.Argument(..., help="Workflow name to validate")):
+def validate(
+    name: Optional[str] = typer.Argument(None, help="Workflow name to validate"),
+):
     """Validate a workflow's schema without applying it."""
     check_initialized()
     cfg = ConfigManager()
 
-    try:
-        typer.echo(f"Validating workflow: {name}")
-        workflow_file = cfg.workflows_dir / f"{name}.yaml"
-
-        if not workflow_file.is_file():
-            typer.echo(f"Error: Workflow '{name}' not found at: {workflow_file}")
+    # Get the workflow name [argument or interactive chooser]
+    workflow_name = name
+    if not workflow_name:
+        available = cfg.list_workflow_names()
+        if not available:
+            print_error("No workflows found to validate")
             raise typer.Exit(1)
 
-        try:
-            with open(workflow_file, "r") as f:
-                workflow_data = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            typer.echo(f"Error: Invalid YAML format in {workflow_file}: {e}")
-            raise typer.Exit(1)
-        except Exception as e:
-            typer.echo(f"Error: Could not read workflow file {workflow_file}: {e}")
-            raise typer.Exit(1)
+        workflow_name = questionary.select(
+            "Select a workflow to validate:",
+            choices=available,
+            use_arrow_keys=True,
+            use_shortcuts=True,
+            qmark="❯",
+        ).ask()
 
-        cfg.validate_workflow(name, workflow_data)
-        typer.echo("✓ Workflow is valid")
+        if not workflow_name:
+            typer.echo("No workflow selected")
+            raise typer.Exit(0)
 
-    except WorkflowNotFoundError as e:
-        print_error(f"{e}")
+    typer.echo(f"Validating workflow: {workflow_name}")
+    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
+
+    if not workflow_file.is_file():
+        print_error(f"Workflow '{workflow_name}' not found")
         raise typer.Exit(1)
-    except (WorkflowSchemaError, ConfigError) as e:
-        print_error(f"Validation failed: {e}")
+
+    try:
+        with open(workflow_file, "r") as f:
+            workflow_data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        print_error(f"Invalid YAML format in {workflow_file}: {e}")
         raise typer.Exit(1)
     except Exception as e:
-        print_error("An unexpected error occurred during validation.")
-        logger.exception(f"Unexpected validation error for '{name}': {e}")
+        print_error(f"Could not read workflow file {workflow_file}: {e}")
+        raise typer.Exit(1)
+
+    try:
+        cfg.validate_workflow(workflow_name, workflow_data)
+        typer.echo("✓ Workflow is valid")
+    except (WorkflowSchemaError, ConfigError) as e:
+        print_error(f"Validation failed: {e}")
         raise typer.Exit(1)
 
 
