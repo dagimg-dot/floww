@@ -4,6 +4,9 @@ import logging
 from typing import Optional
 import yaml
 import sys
+import os
+import subprocess
+from pathlib import Path
 
 from . import __version__ as VERSION
 from .config import ConfigManager
@@ -14,6 +17,7 @@ from .errors import (
     WorkspaceError,
 )
 from .workflow_manager import WorkflowManager
+from .utils import run_command
 
 FLOWW_ART = r"""
 
@@ -201,8 +205,39 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
         raise typer.Exit(1)
 
 
+def open_in_editor(file_path: Path):
+    """Open a file in the default editor."""
+    editor = os.environ.get("EDITOR", "")
+    if not editor:
+        # Try common editors
+        for ed in ["vim", "nano", "vi"]:
+            if run_command(["which", ed]):
+                editor = ed
+                break
+
+    if not editor:
+        print_error(
+            "No suitable editor found. Please set the EDITOR environment variable."
+        )
+        raise typer.Exit(1)
+
+    try:
+        subprocess.run([editor, str(file_path)], check=True)
+    except subprocess.CalledProcessError as e:
+        print_error(f"Editor exited with error: {e}")
+        raise typer.Exit(1)
+    except FileNotFoundError:
+        print_error(f"Editor '{editor}' not found")
+        raise typer.Exit(1)
+
+
 @app.command()
-def add(name: str = typer.Argument(..., help="Name for the new workflow")):
+def add(
+    name: str = typer.Argument(..., help="Name for the new workflow"),
+    edit: bool = typer.Option(
+        False, "--edit", "-e", help="Open the workflow in editor after creation"
+    ),
+):
     """Create a new workflow file with basic structure."""
     check_initialized()
     cfg = ConfigManager()
@@ -238,6 +273,11 @@ def add(name: str = typer.Argument(..., help="Name for the new workflow")):
         with open(workflow_file, "w") as f:
             yaml.dump(workflow_content, f, default_flow_style=False, sort_keys=False)
         typer.echo(f"Created new workflow: {name}")
+
+        if edit:
+            typer.echo("Opening workflow in editor...")
+            open_in_editor(workflow_file)
+
     except OSError as e:
         print_error(f"Failed to create workflow file: {e}")
         raise typer.Exit(1)
