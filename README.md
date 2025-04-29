@@ -40,7 +40,19 @@ Before installing `floww`, ensure you have the following dependencies:
         *   Arch Linux: `sudo pacman -S libnotify`
 3.  **Text Editor (for `edit` command):** The `floww edit` command uses the editor specified in your `$EDITOR` environment variable. If not set, it tries common editors like `vim`, `nano`, or `vi`. Set `$EDITOR` for the best experience: `export EDITOR=nano` (add this to your shell configuration, e.g., `.bashrc` or `.zshrc`).
 
-## Installation (TODO)
+## Installation and Update
+
+1. **Using script**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dagimg-dot/floww/refs/heads/main/scripts/install.sh | sh
+```
+
+2. **Using [eget](https://github.com/zyedidia/eget)**
+  
+```bash
+eget dagimg-dot/floww
+```
 
 ## Building from Source
 
