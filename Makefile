@@ -14,6 +14,7 @@ PYINSTALLER_OPTS=\
 install-deps:
 	uv pip install -e .
 	uv pip install -e .[test]
+	uv pip install -e .[build]
 
 clean:
 	rm -rf dist build *.spec __pycache__ .pytest_cache

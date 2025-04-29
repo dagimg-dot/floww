@@ -28,7 +28,7 @@ jobs:
         run: ~/.local/bin/uv --version
 
       - name: Install dependencies
-        run: ~/.local/bin/uv pip install --system .
+        run: ~/.local/bin/uv pip install --system . && ~/.local/bin/uv pip install --system .[build]
 
       - name: Build with PyInstaller
         run: |
