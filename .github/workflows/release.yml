@@ -28,11 +28,11 @@ jobs:
         run: ~/.local/bin/uv --version
 
       - name: Install dependencies
-        run: ~/.local/bin/uv venv && source .venv/bin/activate && ~/.local/bin/uv pip install .
+        run: ~/.local/bin/uv pip install --system .
 
       - name: Build with PyInstaller
         run: |
-          source .venv/bin/activate && pyinstaller \
+          pyinstaller \
             --onefile \
             --hidden-import shellingham.posix \
             --name floww \
