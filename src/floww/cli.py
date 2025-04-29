@@ -150,72 +150,6 @@ def get_workflow_name(
     return workflow_name
 
 
-@app.command()
-def validate(
-    name: Optional[str] = typer.Argument(None, help="Workflow name to validate"),
-):
-    """Validate a workflow's schema without applying it."""
-    check_initialized()
-    cfg = ConfigManager()
-
-    workflow_name = get_workflow_name(name, "validate", cfg)
-    typer.echo(f"Validating workflow: {workflow_name}")
-    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
-
-    if not workflow_file.is_file():
-        print_error(f"Workflow '{workflow_name}' not found")
-        raise typer.Exit(1)
-
-    try:
-        with open(workflow_file, "r") as f:
-            workflow_data = yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        print_error(f"Invalid YAML format in {workflow_file}: {e}")
-        raise typer.Exit(1)
-    except Exception as e:
-        print_error(f"Could not read workflow file {workflow_file}: {e}")
-        raise typer.Exit(1)
-
-    try:
-        cfg.validate_workflow(workflow_name, workflow_data)
-        typer.echo("✓ Workflow is valid")
-    except (WorkflowSchemaError, ConfigError) as e:
-        print_error(f"Validation failed: {e}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to apply")):
-    """Apply the named workflow (or interactive chooser if no name provided)."""
-    check_initialized()
-    cfg = ConfigManager()
-    workflow_mgr = WorkflowManager()
-
-    try:
-        workflow_name = get_workflow_name(name, "apply", cfg)
-        logger.info(f"Loading workflow: {workflow_name}")
-        workflow_data = cfg.load_workflow(workflow_name)
-
-        logger.info(f"Applying workflow: {workflow_name}")
-        workflow_mgr.apply(workflow_data)
-
-    except (WorkflowNotFoundError, WorkflowSchemaError, ConfigError) as e:
-        print_error(f"Failed to load workflow '{workflow_name or 'selected'}': {e}")
-        raise typer.Exit(1)
-    except WorkspaceError as e:
-        print_error(f"Workflow '{workflow_name}' failed: {e}")
-        raise typer.Exit(1)
-    except questionary.ValidationError as e:
-        print_error(f"Interactive selection failed: {e}")
-        raise typer.Exit(1)
-    except Exception as e:
-        print_error(
-            f"An unexpected error occurred applying workflow '{workflow_name}'."
-        )
-        logger.exception(f"Unexpected apply error: {e}")
-        raise typer.Exit(1)
-
-
 def open_in_editor(file_path: Path):
     """Open a file in the default editor."""
     editor = os.environ.get("EDITOR", "")
@@ -355,6 +289,72 @@ def remove(
     except Exception as e:
         print_error("An unexpected error occurred while removing the workflow.")
         logger.exception(f"Unexpected error removing workflow '{name}': {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def validate(
+    name: Optional[str] = typer.Argument(None, help="Workflow name to validate"),
+):
+    """Validate a workflow's schema without applying it."""
+    check_initialized()
+    cfg = ConfigManager()
+
+    workflow_name = get_workflow_name(name, "validate", cfg)
+    typer.echo(f"Validating workflow: {workflow_name}")
+    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
+
+    if not workflow_file.is_file():
+        print_error(f"Workflow '{workflow_name}' not found")
+        raise typer.Exit(1)
+
+    try:
+        with open(workflow_file, "r") as f:
+            workflow_data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        print_error(f"Invalid YAML format in {workflow_file}: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        print_error(f"Could not read workflow file {workflow_file}: {e}")
+        raise typer.Exit(1)
+
+    try:
+        cfg.validate_workflow(workflow_name, workflow_data)
+        typer.echo("✓ Workflow is valid")
+    except (WorkflowSchemaError, ConfigError) as e:
+        print_error(f"Validation failed: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to apply")):
+    """Apply the named workflow."""
+    check_initialized()
+    cfg = ConfigManager()
+    workflow_mgr = WorkflowManager()
+
+    try:
+        workflow_name = get_workflow_name(name, "apply", cfg)
+        logger.info(f"Loading workflow: {workflow_name}")
+        workflow_data = cfg.load_workflow(workflow_name)
+
+        logger.info(f"Applying workflow: {workflow_name}")
+        workflow_mgr.apply(workflow_data)
+
+    except (WorkflowNotFoundError, WorkflowSchemaError, ConfigError) as e:
+        print_error(f"Failed to load workflow '{workflow_name or 'selected'}': {e}")
+        raise typer.Exit(1)
+    except WorkspaceError as e:
+        print_error(f"Workflow '{workflow_name}' failed: {e}")
+        raise typer.Exit(1)
+    except questionary.ValidationError as e:
+        print_error(f"Interactive selection failed: {e}")
+        raise typer.Exit(1)
+    except Exception as e:
+        print_error(
+            f"An unexpected error occurred applying workflow '{workflow_name}'."
+        )
+        logger.exception(f"Unexpected apply error: {e}")
         raise typer.Exit(1)
 
 
