@@ -1,5 +1,10 @@
 # floww
 
+[![GitHub release](https://img.shields.io/github/v/release/dagimg-dot/floww)](https://github.com/dagimg-dot/floww/releases/latest)
+[![License](https://img.shields.io/github/license/dagimg-dot/floww)](LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/dagimg-dot/floww/total)](https://github.com/dagimg-dot/floww/releases)
+
+
 ```text
   /$$$$$$  /$$
  /$$__  $$| $$
