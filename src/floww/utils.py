@@ -20,3 +20,13 @@ def run_command(command: list[str]) -> bool:
     except FileNotFoundError:
         logger.error(f"Error: Command not found - {command[0]}")
         return False
+
+
+def notify(message: str):
+    """
+    Notify the user with a desktop notification.
+    """
+    if not run_command(["which", "notify-send"]):
+        logger.warning("notify-send not found, cannot notify user")
+        return
+    subprocess.run(["notify-send", "--app-name", "Floww", message])

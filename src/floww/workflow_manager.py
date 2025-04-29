@@ -7,6 +7,7 @@ from .workspace import WorkspaceManager
 from .app_launcher import AppLauncher
 from .errors import AppLaunchError
 from .config import ConfigManager
+from .utils import notify
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +137,10 @@ class WorkflowManager:
 
         if success:
             typer.secho("✓ Workflow applied successfully", fg="green")
+            notify("Workflow applied successfully")
         else:
             typer.secho("⚠ Workflow completed with errors", fg="yellow")
+            notify("Workflow completed with errors")
 
         logger.info("Workflow application process finished.")
         return success
