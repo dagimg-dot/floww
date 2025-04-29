@@ -32,7 +32,7 @@ jobs:
 
       - name: Build with PyInstaller
         run: |
-          pyinstaller \
+          source .venv/bin/activate && pyinstaller \
             --onefile \
             --hidden-import shellingham.posix \
             --name floww \
