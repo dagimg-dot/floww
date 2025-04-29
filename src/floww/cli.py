@@ -115,24 +115,28 @@ def list_workflows():
         raise typer.Exit(1)
 
 
-@app.command()
-def validate(
-    name: Optional[str] = typer.Argument(None, help="Workflow name to validate"),
-):
-    """Validate a workflow's schema without applying it."""
-    check_initialized()
-    cfg = ConfigManager()
+def get_workflow_name(
+    name: Optional[str], action: str, cfg: ConfigManager
+) -> Optional[str]:
+    """Get workflow name from argument or interactive selection.
 
-    # Get the workflow name [argument or interactive chooser]
+    Args:
+        name: Optional workflow name from command argument
+        action: Action being performed (for messages)
+        cfg: ConfigManager instance
+
+    Returns:
+        Selected workflow name or None if selection was cancelled
+    """
     workflow_name = name
     if not workflow_name:
         available = cfg.list_workflow_names()
         if not available:
-            print_error("No workflows found to validate")
+            print_error(f"No workflows found to {action}")
             raise typer.Exit(1)
 
         workflow_name = questionary.select(
-            "Select a workflow to validate:",
+            f"Select a workflow to {action}:",
             choices=available,
             use_arrow_keys=True,
             use_shortcuts=True,
@@ -143,6 +147,18 @@ def validate(
             typer.echo("No workflow selected")
             raise typer.Exit(0)
 
+    return workflow_name
+
+
+@app.command()
+def validate(
+    name: Optional[str] = typer.Argument(None, help="Workflow name to validate"),
+):
+    """Validate a workflow's schema without applying it."""
+    check_initialized()
+    cfg = ConfigManager()
+
+    workflow_name = get_workflow_name(name, "validate", cfg)
     typer.echo(f"Validating workflow: {workflow_name}")
     workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
 
@@ -176,26 +192,7 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
     workflow_mgr = WorkflowManager()
 
     try:
-        # Get the workflow name [argument or interactive chooser]
-        workflow_name = name
-        if not workflow_name:
-            available = cfg.list_workflow_names()
-            if not available:
-                typer.echo("No workflows found to apply.")
-                raise typer.Exit(0)
-
-            workflow_name = questionary.select(
-                "Select a workflow to apply:",
-                choices=available,
-                use_arrow_keys=True,
-                use_shortcuts=True,
-                qmark="❯",
-            ).ask()
-
-            if not workflow_name:
-                typer.echo("No workflow selected.")
-                raise typer.Exit(0)
-
+        workflow_name = get_workflow_name(name, "apply", cfg)
         logger.info(f"Loading workflow: {workflow_name}")
         workflow_data = cfg.load_workflow(workflow_name)
 
@@ -309,26 +306,7 @@ def edit(
     check_initialized()
     cfg = ConfigManager()
 
-    # Get the workflow name [argument or interactive chooser]
-    workflow_name = name
-    if not workflow_name:
-        available = cfg.list_workflow_names()
-        if not available:
-            print_error("No workflows found to edit")
-            raise typer.Exit(1)
-
-        workflow_name = questionary.select(
-            "Select a workflow to edit:",
-            choices=available,
-            use_arrow_keys=True,
-            use_shortcuts=True,
-            qmark="❯",
-        ).ask()
-
-        if not workflow_name:
-            typer.echo("No workflow selected")
-            raise typer.Exit(0)
-
+    workflow_name = get_workflow_name(name, "edit", cfg)
     workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
     if not workflow_file.is_file():
         print_error(f"Workflow '{workflow_name}' not found")
@@ -352,26 +330,7 @@ def remove(
     check_initialized()
     cfg = ConfigManager()
 
-    # Get the workflow name [argument or interactive chooser]
-    workflow_name = name
-    if not workflow_name:
-        available = cfg.list_workflow_names()
-        if not available:
-            print_error("No workflows found to remove")
-            raise typer.Exit(1)
-
-        workflow_name = questionary.select(
-            "Select a workflow to remove:",
-            choices=available,
-            use_arrow_keys=True,
-            use_shortcuts=True,
-            qmark="❯",
-        ).ask()
-
-        if not workflow_name:
-            typer.echo("No workflow selected")
-            raise typer.Exit(0)
-
+    workflow_name = get_workflow_name(name, "remove", cfg)
     workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
     if not workflow_file.is_file():
         print_error(f"Workflow '{workflow_name}' not found")
