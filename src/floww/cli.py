@@ -331,16 +331,36 @@ def edit(
 
 @app.command()
 def remove(
-    name: str = typer.Argument(..., help="Name of the workflow to remove"),
+    name: Optional[str] = typer.Argument(None, help="Name of the workflow to remove"),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Remove a workflow file."""
     check_initialized()
     cfg = ConfigManager()
 
-    workflow_file = cfg.workflows_dir / f"{name}.yaml"
+    # Get the workflow name [argument or interactive chooser]
+    workflow_name = name
+    if not workflow_name:
+        available = cfg.list_workflow_names()
+        if not available:
+            print_error("No workflows found to remove")
+            raise typer.Exit(1)
+
+        workflow_name = questionary.select(
+            "Select a workflow to remove:",
+            choices=available,
+            use_arrow_keys=True,
+            use_shortcuts=True,
+            qmark="❯",
+        ).ask()
+
+        if not workflow_name:
+            typer.echo("No workflow selected")
+            raise typer.Exit(0)
+
+    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
     if not workflow_file.is_file():
-        print_error(f"Workflow '{name}' not found")
+        print_error(f"Workflow '{workflow_name}' not found")
         raise typer.Exit(1)
 
     if not force:
