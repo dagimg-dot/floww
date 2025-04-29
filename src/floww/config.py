@@ -327,3 +327,7 @@ class ConfigManager(metaclass=Singleton):
         return self.config.get(
             "timing", yaml.safe_load(yaml.dump(self.default_conf["timing"]))
         )
+
+    def is_initialized(self) -> bool:
+        """Check if the config directory exists and is properly initialized."""
+        return self.config_path.is_dir() and self.workflows_dir.is_dir()

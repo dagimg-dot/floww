@@ -61,6 +61,14 @@ def print_error(msg: str):
     )
 
 
+def check_initialized():
+    """Check if floww is initialized and raise error if not."""
+    cfg = ConfigManager()
+    if not cfg.is_initialized():
+        print_error("floww is not initialized. Please run 'floww init' first.")
+        raise typer.Exit(1)
+
+
 @app.command()
 def init(
     create_example: bool = typer.Option(
@@ -84,6 +92,7 @@ def init(
 @app.command(name="list")
 def list_workflows():
     """List available workflows."""
+    check_initialized()
     try:
         cfg = ConfigManager()
         names = cfg.list_workflow_names()
@@ -105,6 +114,7 @@ def list_workflows():
 @app.command()
 def validate(name: str = typer.Argument(..., help="Workflow name to validate")):
     """Validate a workflow's schema without applying it."""
+    check_initialized()
     cfg = ConfigManager()
 
     try:
@@ -143,6 +153,7 @@ def validate(name: str = typer.Argument(..., help="Workflow name to validate")):
 @app.command()
 def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to apply")):
     """Apply the named workflow (or interactive chooser if no name provided)."""
+    check_initialized()
     cfg = ConfigManager()
     workflow_mgr = WorkflowManager()
 
