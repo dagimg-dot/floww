@@ -278,6 +278,7 @@ def add(
                 "apps": [{"name": "Example App", "exec": "app-name", "type": "binary"}],
             }
         ],
+        "final_workspace": 0,
     }
 
     try:

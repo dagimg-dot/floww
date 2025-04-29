@@ -108,25 +108,31 @@ class WorkflowManager:
                     if is_last_app_in_list:
                         last_app_wait_to_apply = current_app_wait
 
-            is_last_workspace = workspace_idx == num_workspaces - 1
+            final_wait = (
+                last_app_wait_to_apply
+                if last_app_wait_to_apply > 0
+                else workspace_switch_wait
+            )
 
-            # Only apply workspace wait if NOT the last workspace
-            if not is_last_workspace:
-                # Use the specific wait from the actual last app if it had one, otherwise use the global workspace wait
-                final_wait = (
-                    last_app_wait_to_apply
-                    if last_app_wait_to_apply > 0
-                    else workspace_switch_wait
+            if final_wait > 0:
+                wait_reason = (
+                    "last app" if last_app_wait_to_apply > 0 else "workspace switch"
                 )
+                typer.echo(
+                    f"    ... Waiting {final_wait:.1f}s (due to {wait_reason}) before next workspace..."
+                )
+                time.sleep(final_wait)
 
-                if final_wait > 0:
-                    wait_reason = (
-                        "last app" if last_app_wait_to_apply > 0 else "workspace switch"
-                    )
-                    typer.echo(
-                        f"    ... Waiting {final_wait:.1f}s (due to {wait_reason}) before next workspace..."
-                    )
-                    time.sleep(final_wait)
+        # Switch to final workspace if specified
+        if success and "final_workspace" in workflow_data:
+            final_workspace = workflow_data["final_workspace"]
+            typer.echo(f"--> Switching to final workspace {final_workspace}...")
+            if not self.workspace_mgr.switch(final_workspace):
+                typer.secho(
+                    f"Error: Failed to switch to final workspace {final_workspace}",
+                    fg="red",
+                )
+                success = False
 
         if success:
             typer.secho("✓ Workflow applied successfully", fg="green")

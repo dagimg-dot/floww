@@ -195,6 +195,13 @@ class ConfigManager(metaclass=Singleton):
                 f"The 'workspaces' key in workflow '{workflow_name}' must contain a list."
             )
 
+        if "final_workspace" in workflow_data:
+            final_workspace = workflow_data["final_workspace"]
+            if not isinstance(final_workspace, int) or final_workspace < 0:
+                raise WorkflowSchemaError(
+                    f"The 'final_workspace' key in workflow '{workflow_name}' must be an integer greater than or equal to 0."
+                )
+
         for i, ws in enumerate(workflow_data["workspaces"]):
             ws_id = f"workspace index {i}"
             if isinstance(ws, dict) and "target" in ws:
