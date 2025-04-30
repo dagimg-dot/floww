@@ -23,6 +23,7 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
     check_initialized()
     cfg = ConfigManager()
     workflow_mgr = WorkflowManager()
+    workflow_name = None
 
     try:
         workflow_name = get_workflow_name(name, "apply", cfg)
@@ -37,14 +38,16 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
         print_error(f"Failed to load workflow '{workflow_name or 'selected'}': {e}")
         raise typer.Exit(1)
     except WorkspaceError as e:
-        print_error(f"Workflow '{workflow_name}' failed: {e}")
+        print_error(f"Workflow '{workflow_name or 'unknown'}' failed: {e}")
         raise typer.Exit(1)
     except questionary.ValidationError as e:
         print_error(f"Interactive selection failed: {e}")
         raise typer.Exit(1)
+    except typer.Exit as e:
+        raise e
     except Exception as e:
         print_error(
-            f"An unexpected error occurred applying workflow '{workflow_name}'."
+            f"An unexpected error occurred applying workflow '{workflow_name or 'unknown'}' ."
         )
         logger.exception(f"Unexpected apply error: {e}")
         raise typer.Exit(1)
