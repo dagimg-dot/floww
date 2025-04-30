@@ -5,3 +5,26 @@ DEFAULT_CONFIG = {
         "respect_app_wait": True,  # Whether to use app-specific 'wait' values
     },
 }
+
+# Sample workflow content for different formats
+SAMPLE_WORKFLOW_CONTENT = {
+    "description": "An example workflow.",
+    "workspaces": [
+        {
+            "target": 1,
+            "apps": [
+                {"name": "Terminal", "exec": "gnome-terminal"},
+            ],
+        },
+        {
+            "target": 2,
+            "apps": [
+                {
+                    "name": "Browser",
+                    "exec": "firefox",
+                    "args": ["https://github.com/dagimg-dot/floww"],
+                },
+            ],
+        },
+    ],
+}

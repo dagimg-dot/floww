@@ -10,6 +10,12 @@ class ConfigError(FlowwError):
     pass
 
 
+class ConfigLoadError(ConfigError):
+    """Errors related to loading configuration files."""
+
+    pass
+
+
 class WorkflowNotFoundError(ConfigError):
     """Specific error for when a workflow file is not found."""
 

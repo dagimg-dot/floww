@@ -1,12 +1,12 @@
 [project]
 name = "floww"
 version = "0.1.0"
-description = "CLI tool to manage Linux workspaces and launch applications based on YAML workflows"
+description = "CLI tool to manage Linux workspaces and launch applications based on workflows defined in (TOML, YAML, JSON)"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Dagim G. Astatke", email = "dagim.astatke@gmail.com" }]
 requires-python = ">=3.13"
-dependencies = ["PyYAML", "typer", "questionary", "ewmhlib"]
+dependencies = ["PyYAML", "typer", "questionary", "ewmhlib", "toml"]
 
 [project.optional-dependencies]
 test = ["pytest"]

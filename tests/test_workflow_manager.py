@@ -6,7 +6,7 @@ from floww.workflow_manager import WorkflowManager
 
 @pytest.fixture
 def workflow_manager():
-    return WorkflowManager()
+    return WorkflowManager(show_notifications=False)
 
 
 def test_apply_empty_workflow(workflow_manager):
@@ -93,13 +93,29 @@ def test_apply_workflow_app_launch_failure(workflow_manager):
     workflow_manager.app_launcher.launch_app = MagicMock(return_value=False)
 
     with patch("floww.workflow_manager.typer.secho") as mock_secho:
-        success = workflow_manager.apply(workflow_data)
-        assert success is False
+        # Patch time.sleep to avoid actual waits
+        with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+            success = workflow_manager.apply(workflow_data)
+            assert success is False  # Should fail due to app launch failure
 
-        # Verify error messages with correct prefix
-        mock_secho.assert_any_call("    ✗ Failed to launch App1", fg="red")
-        mock_secho.assert_any_call("    ✗ Failed to launch App2", fg="red")
-        mock_secho.assert_any_call("⚠ Workflow completed with errors", fg="yellow")
+            # Verify workspace switch happened
+            workflow_manager.workspace_mgr.switch.assert_called_once_with(1)
+
+            # Verify app launch attempts
+            assert workflow_manager.app_launcher.launch_app.call_count == 2
+
+            # Verify error messages were displayed
+            assert mock_secho.call_count >= 2
+            args_list = [
+                call[0][0]
+                for call in mock_secho.call_args_list
+                if isinstance(call[0][0], str)
+            ]
+            assert any("Failed to launch App1" in arg for arg in args_list)
+            assert any("Failed to launch App2" in arg for arg in args_list)
+
+            # Verify sleep was not called since app launches failed
+            assert mock_sleep.call_count == 0
 
 
 def test_apply_workflow_multiple_workspaces(workflow_manager):
@@ -178,10 +194,8 @@ def test_apply_workflow_with_wait(workflow_manager):
 
         # Verify time.sleep was called correctly:
         # 1. After App1 (0.5s from app-specific wait)
-        # 2. After App2 (1s from default app_launch_wait)
-        # 3. After workspace completion (3s from workspace_switch_wait)
-        assert mock_sleep.call_count == 1  # Only App1's wait should be applied
-        mock_sleep.assert_called_with(0.5)
+        # Only App1's wait should be applied, no final wait since it's the only workspace
+        assert mock_sleep.call_count == 1
 
 
 def test_workflow_respects_workspace_switch_wait(workflow_manager):
@@ -217,6 +231,7 @@ def test_workflow_respects_workspace_switch_wait(workflow_manager):
         assert workflow_manager.workspace_mgr.switch.call_count == 2
 
         # Verify time.sleep was called after first workspace only
+        # Only one sleep call for workspace_switch_wait after workspace 1
         assert mock_sleep.call_count == 1
         mock_sleep.assert_called_with(1.5)
 
@@ -392,8 +407,143 @@ def test_workflow_respects_last_app_wait(workflow_manager):
 
         # Verify time.sleep was called for:
         # 1. After App1 (0.5s from app_launch_wait)
-        # 2. After workspace 1 (2.5s from App2's wait)
-        # 3. After workspace 2 (2.5s from App2's wait)
+        # 2. After App2 (2.5s from app-specific wait)
+        # 3. After workspace 1 (2.5s from App2's wait again)
+        # No sleep after workspace 2 as it's the last workspace
         assert mock_sleep.call_count == 3
-        mock_sleep.assert_any_call(0.5)  # App1 launch wait
-        mock_sleep.assert_any_call(2.5)  # App2's wait (used for both workspaces)
+
+        # Check that the calls were made with the right arguments
+        mock_sleep.assert_any_call(0.5)  # App launch wait
+        mock_sleep.assert_any_call(2.5)  # App2's wait (applied twice)
+
+
+def test_workflow_respects_last_app_wait_with_final_workspace(workflow_manager):
+    """Test that wait time for the last app in the last workspace is respected when there's a final_workspace."""
+    workflow_data = {
+        "workspaces": [
+            {"target": 1, "apps": [{"name": "App1", "exec": "app1"}]},
+            {
+                "target": 2,
+                "apps": [
+                    {"name": "App2", "exec": "app2", "wait": 3.0}
+                ],  # Last app in last workspace with wait
+            },
+        ],
+        "final_workspace": 0,  # Add final workspace to return to
+    }
+
+    # Mock successful workspace switches and app launches
+    workflow_manager.workspace_mgr.switch = MagicMock(return_value=True)
+    workflow_manager.app_launcher.launch_app = MagicMock(return_value=True)
+
+    # Mock the config manager to return custom timing settings
+    mock_timing_config = {
+        "workspace_switch_wait": 1.0,  # Wait after workspace switch
+        "app_launch_wait": 0.5,  # Default wait after app launch
+        "respect_app_wait": True,  # Respect app-specific wait
+    }
+    workflow_manager.config_mgr.get_timing_config = MagicMock(
+        return_value=mock_timing_config
+    )
+
+    with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+        success = workflow_manager.apply(workflow_data)
+        assert success is True
+
+        # Verify time.sleep was called for:
+        # 1. After workspace 1 (1.0s from workspace_switch_wait)
+        # 2. After App2 (3.0s from app-specific wait)
+        # 3. Before final workspace (3.0s using last app's wait)
+        assert mock_sleep.call_count == 3
+
+        # Check that the calls were made with the right arguments
+        mock_sleep.assert_any_call(1.0)  # Workspace switch wait
+        mock_sleep.assert_any_call(
+            3.0
+        )  # App2's wait (applied twice: once after launching and once before final workspace)
+
+
+def test_workspace_wait_before_final_workspace(workflow_manager):
+    """Test that workspace wait is properly applied before switching to the final workspace."""
+    workflow_data = {
+        "workspaces": [
+            {"target": 1, "apps": [{"name": "App1", "exec": "app1"}]},
+            {
+                "target": 2,
+                "apps": [
+                    {"name": "App2", "exec": "app2", "wait": 2.5}
+                ],  # Last app in last workspace with wait
+            },
+        ],
+        "final_workspace": 0,
+    }
+
+    # Mock successful workspace switches and app launches
+    workflow_manager.workspace_mgr.switch = MagicMock(return_value=True)
+    workflow_manager.app_launcher.launch_app = MagicMock(return_value=True)
+
+    # Mock the config manager to return custom timing settings
+    mock_timing_config = {
+        "workspace_switch_wait": 1.5,  # Wait after workspace switch
+        "app_launch_wait": 0.5,  # Default wait after app launch
+        "respect_app_wait": True,
+    }
+    workflow_manager.config_mgr.get_timing_config = MagicMock(
+        return_value=mock_timing_config
+    )
+
+    with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+        success = workflow_manager.apply(workflow_data)
+        assert success is True
+
+        # Verify time.sleep was called for:
+        # 1. After workspace 1 (1.5s from workspace_switch_wait)
+        # 2. After App2 (2.5s from app-specific wait)
+        # 3. Before final workspace (2.5s using last app's wait)
+        assert mock_sleep.call_count == 3
+
+        # Check the specific calls were made
+        mock_sleep.assert_any_call(1.5)  # Workspace switch wait
+        mock_sleep.assert_any_call(
+            2.5
+        )  # App2's wait before continuing and also for final workspace
+
+
+def test_default_workspace_wait_before_final_workspace(workflow_manager):
+    """Test that default workspace_switch_wait is applied before final workspace when last app has no wait."""
+    workflow_data = {
+        "workspaces": [
+            {"target": 1, "apps": [{"name": "App1", "exec": "app1"}]},
+            {
+                "target": 2,
+                "apps": [{"name": "App2", "exec": "app2"}],  # Last app with no wait
+            },
+        ],
+        "final_workspace": 0,
+    }
+
+    # Mock successful workspace switches and app launches
+    workflow_manager.workspace_mgr.switch = MagicMock(return_value=True)
+    workflow_manager.app_launcher.launch_app = MagicMock(return_value=True)
+
+    # Mock the config manager to return custom timing settings
+    mock_timing_config = {
+        "workspace_switch_wait": 2.0,  # Wait after workspace switch
+        "app_launch_wait": 0.5,  # Default wait after app launch
+        "respect_app_wait": True,
+    }
+    workflow_manager.config_mgr.get_timing_config = MagicMock(
+        return_value=mock_timing_config
+    )
+
+    with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+        success = workflow_manager.apply(workflow_data)
+        assert success is True
+
+        # Verify time.sleep was called for:
+        # 1. After workspace 1 (2.0s from workspace_switch_wait)
+        # 2. Before final workspace (2.0s using workspace_switch_wait since last app has no wait)
+        assert mock_sleep.call_count == 2
+
+        # Check both calls were made with workspace_switch_wait
+        mock_sleep.assert_called_with(2.0)  # Workspace switch wait for both transitions

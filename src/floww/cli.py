@@ -2,11 +2,11 @@ import typer
 import questionary
 import logging
 from typing import Optional
-import yaml
 import sys
 import os
 import subprocess
 from pathlib import Path
+from enum import Enum
 
 from . import __version__ as VERSION
 from .config import ConfigManager
@@ -15,6 +15,7 @@ from .errors import (
     WorkflowNotFoundError,
     WorkflowSchemaError,
     WorkspaceError,
+    ConfigLoadError,
 )
 from .workflow_manager import WorkflowManager
 from .utils import run_command
@@ -40,6 +41,13 @@ LogLevel = typer.Option(
     help="Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).",
     case_sensitive=False,
 )
+
+
+class FileType(str, Enum):
+    YAML = "yaml"
+    JSON = "json"
+    TOML = "toml"
+
 
 app = typer.Typer(
     help="floww - your workflow automations in one place",
@@ -78,11 +86,14 @@ def init(
     create_example: bool = typer.Option(
         False, "--example", "-e", help="Create an example workflow"
     ),
+    file_type: FileType = typer.Option(
+        FileType.YAML, "--type", "-t", help="File format for the example workflow"
+    ),
 ):
     """Initialize configuration directory and workflows folder."""
     try:
         cfg = ConfigManager()
-        cfg.init(create_example=create_example)
+        cfg.init(create_example=create_example, file_type=file_type.value)
         typer.echo(f"Initialized config at {cfg.config_path}")
     except ConfigError as e:
         print_error(f"Initialization failed: {e}")
@@ -155,7 +166,7 @@ def open_in_editor(file_path: Path):
     editor = os.environ.get("EDITOR", "")
     if not editor:
         # Try common editors
-        for ed in ["vim", "nano", "vi"]:
+        for ed in ["vim", "vi", "nano"]:
             if run_command(["which", ed]):
                 editor = ed
                 break
@@ -182,6 +193,9 @@ def add(
     edit: bool = typer.Option(
         False, "--edit", "-e", help="Open the workflow in editor after creation"
     ),
+    file_type: FileType = typer.Option(
+        FileType.YAML, "--type", "-t", help="File format for the workflow file"
+    ),
 ):
     """Create a new workflow file with basic structure."""
     check_initialized()
@@ -195,14 +209,23 @@ def add(
         print_error("Workflow name cannot start with a dot")
         raise typer.Exit(1)
 
-    if name.endswith(".yaml"):
-        print_error("Please provide the name without .yaml extension")
+    if "." in name:
+        print_error("Please provide the name without file extension")
         raise typer.Exit(1)
 
-    workflow_file = cfg.workflows_dir / f"{name}.yaml"
-    if workflow_file.exists():
-        print_error(f"Workflow '{name}' already exists")
+    existing_files = []
+    for ext in cfg.config_loader.get_supported_formats():
+        path = cfg.workflows_dir / f"{name}{ext}"
+        if path.is_file():
+            existing_files.append(path)
+
+    if existing_files:
+        extensions = ", ".join(f.suffix for f in existing_files)
+        print_error(f"Workflow '{name}' already exists with extension: {extensions}")
         raise typer.Exit(1)
+
+    ext = f".{file_type.value}"
+    workflow_file = cfg.workflows_dir / f"{name}{ext}"
 
     workflow_content = {
         "description": "A new workflow.",
@@ -216,14 +239,16 @@ def add(
     }
 
     try:
-        with open(workflow_file, "w") as f:
-            yaml.dump(workflow_content, f, default_flow_style=False, sort_keys=False)
-        typer.echo(f"Created new workflow: {name}")
+        cfg.config_loader.save(workflow_content, workflow_file)
+        typer.echo(f"Created new workflow: {name} ({file_type.value})")
 
         if edit:
             typer.echo("Opening workflow in editor...")
             open_in_editor(workflow_file)
 
+    except ConfigLoadError as e:
+        print_error(f"Failed to create workflow file: {e}")
+        raise typer.Exit(1)
     except OSError as e:
         print_error(f"Failed to create workflow file: {e}")
         raise typer.Exit(1)
@@ -242,10 +267,18 @@ def edit(
     cfg = ConfigManager()
 
     workflow_name = get_workflow_name(name, "edit", cfg)
-    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
-    if not workflow_file.is_file():
+
+    workflow_files = []
+    for ext in cfg.config_loader.get_supported_formats():
+        path = cfg.workflows_dir / f"{workflow_name}{ext}"
+        if path.is_file():
+            workflow_files.append(path)
+
+    if not workflow_files:
         print_error(f"Workflow '{workflow_name}' not found")
         raise typer.Exit(1)
+
+    workflow_file = workflow_files[0]
 
     try:
         typer.echo(f"Opening workflow '{workflow_name}' in editor...")
@@ -266,14 +299,21 @@ def remove(
     cfg = ConfigManager()
 
     workflow_name = get_workflow_name(name, "remove", cfg)
-    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
-    if not workflow_file.is_file():
+
+    workflow_files = []
+    for ext in cfg.config_loader.get_supported_formats():
+        path = cfg.workflows_dir / f"{workflow_name}{ext}"
+        if path.is_file():
+            workflow_files.append(path)
+
+    if not workflow_files:
         print_error(f"Workflow '{workflow_name}' not found")
         raise typer.Exit(1)
 
     if not force:
         confirm = questionary.confirm(
-            f"Are you sure you want to remove workflow '{name}'?", default=False
+            f"Are you sure you want to remove workflow '{workflow_name}'?",
+            default=False,
         ).ask()
 
         if not confirm:
@@ -281,14 +321,15 @@ def remove(
             raise typer.Exit(0)
 
     try:
-        workflow_file.unlink()
-        typer.echo(f"Removed workflow: {name}")
+        for workflow_file in workflow_files:
+            workflow_file.unlink()
+            typer.echo(f"Removed workflow: {workflow_file.name}")
     except OSError as e:
         print_error(f"Failed to remove workflow file: {e}")
         raise typer.Exit(1)
     except Exception as e:
         print_error("An unexpected error occurred while removing the workflow.")
-        logger.exception(f"Unexpected error removing workflow '{name}': {e}")
+        logger.exception(f"Unexpected error removing workflow '{workflow_name}': {e}")
         raise typer.Exit(1)
 
 
@@ -302,26 +343,12 @@ def validate(
 
     workflow_name = get_workflow_name(name, "validate", cfg)
     typer.echo(f"Validating workflow: {workflow_name}")
-    workflow_file = cfg.workflows_dir / f"{workflow_name}.yaml"
-
-    if not workflow_file.is_file():
-        print_error(f"Workflow '{workflow_name}' not found")
-        raise typer.Exit(1)
 
     try:
-        with open(workflow_file, "r") as f:
-            workflow_data = yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        print_error(f"Invalid YAML format in {workflow_file}: {e}")
-        raise typer.Exit(1)
-    except Exception as e:
-        print_error(f"Could not read workflow file {workflow_file}: {e}")
-        raise typer.Exit(1)
-
-    try:
+        workflow_data = cfg.load_workflow(workflow_name)
         cfg.validate_workflow(workflow_name, workflow_data)
         typer.echo("✓ Workflow is valid")
-    except (WorkflowSchemaError, ConfigError) as e:
+    except (WorkflowNotFoundError, WorkflowSchemaError, ConfigError) as e:
         print_error(f"Validation failed: {e}")
         raise typer.Exit(1)
 
@@ -336,6 +363,7 @@ def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to appl
     try:
         workflow_name = get_workflow_name(name, "apply", cfg)
         logger.info(f"Loading workflow: {workflow_name}")
+
         workflow_data = cfg.load_workflow(workflow_name)
 
         logger.info(f"Applying workflow: {workflow_name}")

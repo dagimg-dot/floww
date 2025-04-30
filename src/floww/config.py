@@ -4,9 +4,15 @@ from pathlib import Path
 from typing import Dict, List, Any
 import logging
 
-from .errors import ConfigError, WorkflowNotFoundError, WorkflowSchemaError
+from .errors import (
+    ConfigError,
+    WorkflowNotFoundError,
+    WorkflowSchemaError,
+    ConfigLoadError,
+)
 from .singleton import Singleton
-from .constants import DEFAULT_CONFIG
+from .constants import DEFAULT_CONFIG, SAMPLE_WORKFLOW_CONTENT
+from .config_manager import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +23,8 @@ class ConfigManager(metaclass=Singleton):
     default_conf = DEFAULT_CONFIG
 
     def __init__(self, config_path: Path = None):
+        self.config_loader = ConfigLoader()
+
         if config_path:
             self.config_path = config_path
         else:
@@ -28,6 +36,7 @@ class ConfigManager(metaclass=Singleton):
             self.config_path = base_dir / "floww"
             logger.debug(f"Using default config path: {self.config_path}")
 
+        # TODO: Make this configurable for different file formats
         self.config_file = self.config_path / "config.yaml"
         self.workflows_dir = self.config_path / "workflows"
 
@@ -74,79 +83,85 @@ class ConfigManager(metaclass=Singleton):
     def _load_main_config_file(
         self,
     ) -> Dict[str, Any]:
-        """Loads the main config.yaml file. Returns empty dict if not found or invalid."""
-        if not self.config_file.is_file():
-            logger.debug(f"Main config file not found: {self.config_file}")
-            return {}
+        """Loads the main config file. Returns empty dict if not found or invalid.
 
-        try:
-            with open(self.config_file, "r") as f:
-                config_data = yaml.safe_load(f)
+        Supports multiple formats (YAML, JSON, TOML) using ConfigLoader.
+        """
+        config_base = self.config_path / "config"
+        config_files = [
+            config_base.with_suffix(ext)
+            for ext in self.config_loader.get_supported_formats()
+        ]
 
-                if not isinstance(config_data, dict):
-                    logger.warning(
-                        f"Invalid format in config file {self.config_file}: Expected a dictionary (mapping), found {type(config_data)}. Ignoring."
+        # Prioritize the default config.yaml if it exists
+        if self.config_file.is_file():
+            config_files.insert(0, self.config_file)
+
+        for file_path in config_files:
+            if file_path.is_file():
+                try:
+                    config_data = self.config_loader.load(file_path)
+                    if not isinstance(config_data, dict):
+                        logger.warning(
+                            f"Invalid format in config file {file_path}: Expected a dictionary (mapping), found {type(config_data)}. Ignoring."
+                        )
+                        continue
+
+                    logger.debug(f"Successfully loaded config from {file_path}")
+                    return config_data
+                except ConfigLoadError as e:
+                    logger.error(f"Error loading config file {file_path}: {e}")
+                except Exception as e:
+                    logger.error(
+                        f"An unexpected error occurred loading config {file_path}: {e}"
                     )
-                    return {}
 
-                logger.debug(f"Successfully loaded main config from {self.config_file}")
-                return config_data
-        except yaml.YAMLError as e:
-            logger.error(f"Invalid YAML in main config file {self.config_file}: {e}")
-            return {}
-        except OSError as e:
-            logger.error(f"Could not read main config file {self.config_file}: {e}")
-            return {}
-        except Exception as e:
-            logger.error(
-                f"An unexpected error occurred loading main config {self.config_file}: {e}"
-            )
-            return {}
+        logger.debug(f"No valid config file found in {self.config_path}")
+        return {}
 
-    def init(self, create_example: bool = False):
-        """Create config directory, default config.yaml, and workflows directory."""
+    def init(self, create_example: bool = False, file_type: str = "yaml"):
+        """Create config directory, default config.yaml, and workflows directory.
+
+        Args:
+            create_example: Whether to create an example workflow file
+            file_type: File format for the example workflow (yaml, json, toml)
+        """
         try:
             self.config_path.mkdir(parents=True, exist_ok=True)
+
             if not self.config_file.exists():
                 default_content = {}
-                with open(self.config_file, "w") as f:
-                    yaml.dump(default_content, f, default_flow_style=False)
+                self.config_loader.save(default_content, self.config_file)
+
             self.workflows_dir.mkdir(exist_ok=True)
 
             if create_example:
-                sample_workflow_path = self.workflows_dir / "example.yaml"
-                if not any(self.workflows_dir.glob("*.yaml")):
-                    sample_content = {
-                        "description": "An example workflow.",
-                        "workspaces": [
-                            {
-                                "target": 1,
-                                "apps": [
-                                    {"name": "Terminal", "exec": "gnome-terminal"},
-                                ],
-                            },
-                            {
-                                "target": 2,
-                                "apps": [
-                                    {
-                                        "name": "Browser",
-                                        "exec": "firefox",
-                                        "args": ["https://github.com/dagimg-dot/floww"],
-                                    }
-                                ],
-                            },
-                        ],
-                    }
-                    with open(sample_workflow_path, "w") as f:
-                        yaml.dump(
-                            sample_content, f, default_flow_style=False, sort_keys=False
+                supported_formats = [
+                    ext.lstrip(".")
+                    for ext in self.config_loader.get_supported_formats()
+                ]
+
+                if file_type not in supported_formats:
+                    logger.warning(
+                        f"Unsupported file type '{file_type}', using yaml instead"
+                    )
+                    file_type = "yaml"
+
+                sample_workflow_path = self.workflows_dir / f"example.{file_type}"
+
+                if not any(self.workflows_dir.glob("example.*")):
+                    try:
+                        self.config_loader.save(
+                            SAMPLE_WORKFLOW_CONTENT, sample_workflow_path
                         )
+                        logger.debug(
+                            f"Created example workflow in {file_type} format at {sample_workflow_path}"
+                        )
+                    except ConfigLoadError as e:
+                        logger.error(f"Failed to create example workflow: {e}")
+
         except OSError as e:
             raise ConfigError(f"Failed to initialize config directory: {e}") from e
-        except yaml.YAMLError as e:
-            raise ConfigError(
-                f"Failed to write default config/example workflow: {e}"
-            ) from e
         except Exception as e:
             raise ConfigError(
                 f"An unexpected error occurred during initialization: {e}"
@@ -157,7 +172,10 @@ class ConfigManager(metaclass=Singleton):
         if not self.workflows_dir.is_dir():
             return []
         try:
-            return sorted([p.stem for p in self.workflows_dir.glob("*.yaml")])
+            workflows = set()
+            for ext in self.config_loader.get_supported_formats():
+                workflows.update([p.stem for p in self.workflows_dir.glob(f"*{ext}")])
+            return sorted(list(workflows))
         except OSError as e:
             raise ConfigError(
                 f"Failed to list workflows in {self.workflows_dir}: {e}"
@@ -279,35 +297,43 @@ class ConfigManager(metaclass=Singleton):
 
     def load_workflow(self, workflow_name: str) -> Dict[str, Any]:
         """
-        Loads and validates a workflow YAML file from the workflows directory.
+        Loads and validates a workflow file from the workflows directory.
+
+        Supports multiple formats (YAML, JSON, TOML) using ConfigLoader.
 
         Args:
-            workflow_name: The name of the workflow file (without the .yaml extension).
+            workflow_name: The name of the workflow file (without extension).
 
         Returns:
             A dictionary representing the parsed and validated workflow.
 
         Raises:
             WorkflowNotFoundError: If the workflow file doesn't exist.
-            ConfigError: If the YAML is invalid or file cannot be read.
+            ConfigError: If the file is invalid or cannot be read.
             WorkflowSchemaError: If the workflow doesn't adhere to the expected schema.
         """
-        workflow_file = self.workflows_dir / f"{workflow_name}.yaml"
+        workflow_base = self.workflows_dir / workflow_name
+        possible_files = [
+            workflow_base.with_suffix(ext)
+            for ext in self.config_loader.get_supported_formats()
+        ]
 
-        if not workflow_file.is_file():
+        workflow_file = None
+        for file_path in possible_files:
+            if file_path.is_file():
+                workflow_file = file_path
+                break
+
+        if not workflow_file:
+            extensions = ", ".join(self.config_loader.get_supported_formats())
             raise WorkflowNotFoundError(
-                f"Workflow '{workflow_name}' not found at: {workflow_file}"
+                f"Workflow '{workflow_name}' not found with any supported format ({extensions})"
             )
 
         try:
-            with open(workflow_file, "r") as f:
-                workflow_data = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            raise ConfigError(f"Invalid YAML in workflow '{workflow_name}': {e}") from e
-        except OSError as e:
-            raise ConfigError(
-                f"Could not read workflow file '{workflow_name}': {e}"
-            ) from e
+            workflow_data = self.config_loader.load(workflow_file)
+        except ConfigLoadError as e:
+            raise ConfigError(f"Error loading workflow '{workflow_name}': {e}") from e
         except Exception as e:
             raise ConfigError(
                 f"An unexpected error occurred loading workflow '{workflow_name}': {e}"
@@ -318,7 +344,18 @@ class ConfigManager(metaclass=Singleton):
 
     def list_workflows(self) -> List[str]:
         """Return list of workflow file names (without extension)."""
-        return self.list_workflow_names()
+        if not self.workflows_dir.is_dir():
+            return []
+
+        try:
+            workflows = set()
+            for ext in self.config_loader.get_supported_formats():
+                workflows.update([p.stem for p in self.workflows_dir.glob(f"*{ext}")])
+            return sorted(list(workflows))
+        except OSError as e:
+            raise ConfigError(
+                f"Failed to list workflows in {self.workflows_dir}: {e}"
+            ) from e
 
     def get_config(self) -> Dict[str, Any]:
         """Returns the currently loaded and merged configuration."""
