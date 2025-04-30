@@ -24,6 +24,9 @@ def apply(
         autocompletion=lambda: ConfigManager().list_workflow_names(),
         help="Workflow name to apply",
     ),
+    file_path: Optional[str] = typer.Option(
+        None, "--file", "-f", help="Path to the workflow file to apply"
+    ),
 ):
     """Apply the named workflow."""
     check_initialized()
@@ -32,10 +35,14 @@ def apply(
     workflow_name = None
 
     try:
-        workflow_name = get_workflow_name(name, "apply", cfg)
-        logger.info(f"Loading workflow: {workflow_name}")
-
-        workflow_data = cfg.load_workflow(workflow_name)
+        if file_path:
+            workflow_name = file_path
+            logger.info(f"Loading workflow from file: {file_path}")
+            workflow_data = cfg.load_workflow(workflow_name, is_direct_load=True)
+        else:
+            workflow_name = get_workflow_name(name, "apply", cfg)
+            logger.info(f"Loading workflow: {workflow_name}")
+            workflow_data = cfg.load_workflow(workflow_name)
 
         logger.info(f"Applying workflow: {workflow_name}")
         workflow_mgr.apply(workflow_data)

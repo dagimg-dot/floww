@@ -89,7 +89,10 @@ It's recommended to install `floww` in a virtual environment.
 
 `floww` provides several commands to manage and apply your workflows.
 
-> **Note:** All options have short and long forms. like `-e` and `--edit`.
+> **Note:** 
+> - All options have short and long forms. like `-e` and `--edit`.
+> - The commands `apply`, `remove`, `edit` and `validate` have autocompletion for workflow names.
+> - Checkout `floww --show-completion` and `floww --install-completion` for more information.
 
 1.  **Initialize Configuration:**
     Run this first to create the necessary configuration directory (`~/.config/floww`) and workflows subdirectory.
@@ -137,6 +140,7 @@ It's recommended to install `floww` in a virtual environment.
     ```
     *   If `<workflow-name>` is omitted, `floww` will present an interactive list of available workflows to choose from.
     *   Example: `floww apply coding`
+    *   Use `floww apply --file <file-path>` to apply a workflow from a file path.
 
 7.  **Remove a Workflow:**
     Delete a workflow file.

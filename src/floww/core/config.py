@@ -294,14 +294,17 @@ class ConfigManager(metaclass=Singleton):
                 f"The 'description' in workflow '{workflow_name}', if present, must be a string."
             )
 
-    def load_workflow(self, workflow_name: str) -> Dict[str, Any]:
+    def load_workflow(
+        self, workflow_name: str, is_direct_load: bool = False
+    ) -> Dict[str, Any]:
         """
-        Loads and validates a workflow file from the workflows directory.
+        Loads and validates a workflow file from the workflows directory or from a specific file path.
 
         Supports multiple formats (YAML, JSON, TOML) using ConfigLoader.
 
         Args:
-            workflow_name: The name of the workflow file (without extension).
+            workflow_name: The name of the workflow file (without extension) or the full file path if is_direct_load is True.
+            is_direct_load: If True, workflow_name is treated as a direct file path.
 
         Returns:
             A dictionary representing the parsed and validated workflow.
@@ -311,34 +314,44 @@ class ConfigManager(metaclass=Singleton):
             ConfigError: If the file is invalid or cannot be read.
             WorkflowSchemaError: If the workflow doesn't adhere to the expected schema.
         """
-        workflow_base = self.workflows_dir / workflow_name
-        possible_files = [
-            workflow_base.with_suffix(ext)
-            for ext in self.config_loader.get_supported_formats()
-        ]
-
         workflow_file = None
-        for file_path in possible_files:
-            if file_path.is_file():
-                workflow_file = file_path
-                break
 
-        if not workflow_file:
-            extensions = ", ".join(self.config_loader.get_supported_formats())
-            raise WorkflowNotFoundError(
-                f"Workflow '{workflow_name}' not found with any supported format ({extensions})"
-            )
+        if is_direct_load:
+            workflow_file = Path(workflow_name)
+            if not workflow_file.is_file():
+                raise WorkflowNotFoundError(f"Workflow file not found: {workflow_name}")
+
+            display_name = workflow_file.stem
+        else:
+            workflow_base = self.workflows_dir / workflow_name
+            possible_files = [
+                workflow_base.with_suffix(ext)
+                for ext in self.config_loader.get_supported_formats()
+            ]
+
+            for file_path in possible_files:
+                if file_path.is_file():
+                    workflow_file = file_path
+                    break
+
+            if not workflow_file:
+                extensions = ", ".join(self.config_loader.get_supported_formats())
+                raise WorkflowNotFoundError(
+                    f"Workflow '{workflow_name}' not found with any supported format ({extensions})"
+                )
+
+            display_name = workflow_name
 
         try:
             workflow_data = self.config_loader.load(workflow_file)
         except ConfigLoadError as e:
-            raise ConfigError(f"Error loading workflow '{workflow_name}': {e}") from e
+            raise ConfigError(f"Error loading workflow '{display_name}': {e}") from e
         except Exception as e:
             raise ConfigError(
-                f"An unexpected error occurred loading workflow '{workflow_name}': {e}"
+                f"An unexpected error occurred loading workflow '{display_name}': {e}"
             ) from e
 
-        self.validate_workflow(workflow_name, workflow_data)
+        self.validate_workflow(display_name, workflow_data)
         return workflow_data
 
     def list_workflows(self) -> List[str]:
