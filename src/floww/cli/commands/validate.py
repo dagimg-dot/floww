@@ -8,18 +8,17 @@ from floww.cli.helpers import (
 )
 from floww import ConfigManager, WorkflowNotFoundError, WorkflowSchemaError, ConfigError
 
-cfg = ConfigManager()
-
 
 def validate(
     name: Optional[str] = typer.Argument(
         None,
-        autocompletion=lambda: cfg.list_workflow_names(),
+        autocompletion=lambda: ConfigManager().list_workflow_names(),
         help="Workflow name to validate",
     ),
 ):
     """Validate a workflow's schema without applying it."""
     check_initialized()
+    cfg = ConfigManager()
 
     workflow_name = get_workflow_name(name, "validate", cfg)
     typer.echo(f"Validating workflow: {workflow_name}")

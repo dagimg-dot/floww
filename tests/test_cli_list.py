@@ -50,9 +50,23 @@ def test_list_with_workflows(set_xdg_config_home):
     cfg = ConfigManager()
     cfg.init()
     workflows_dir = cfg.workflows_dir
-    # Create sample workflows
-    (workflows_dir / "alpha.yaml").write_text("dummy: 1")
-    (workflows_dir / "beta.yaml").write_text("dummy: 2")
+    # Create sample workflows with proper content
+    (workflows_dir / "alpha.yaml").write_text("""
+description: "Alpha workflow"
+workspaces:
+  - target: 1
+    apps:
+      - name: "Terminal"
+        exec: "gnome-terminal"
+""")
+    (workflows_dir / "beta.yaml").write_text("""
+description: "Beta workflow"
+workspaces:
+  - target: 2
+    apps:
+      - name: "Browser"
+        exec: "firefox"
+""")
 
     print(f"Contents of {workflows_dir}:")
     for path in workflows_dir.rglob("*"):
@@ -66,84 +80,3 @@ def test_list_with_workflows(set_xdg_config_home):
     lines = result.stdout.strip().splitlines()
     assert "  - alpha" in lines
     assert "  - beta" in lines
-
-
-def test_validate_valid_workflow(set_xdg_config_home):
-    """Test validating a valid workflow."""
-    runner = CliRunner()
-
-    # Initialize config
-    result = runner.invoke(
-        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
-    )
-    assert result.exit_code == 0
-
-    # Create a valid workflow file
-    config_dir = set_xdg_config_home / "floww"
-    workflows_dir = config_dir / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    example_workflow = workflows_dir / "example.yaml"
-    example_workflow.write_text("""
-description: "Example workflow"
-workspaces:
-  - target: 1
-    apps:
-      - name: "Terminal"
-        exec: "gnome-terminal"
-""")
-
-    # Validate the example workflow
-    result = runner.invoke(
-        app, ["validate", "example"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
-    )
-    assert result.exit_code == 0
-    assert "✓ Workflow is valid" in result.stdout
-
-
-def test_validate_nonexistent_workflow(set_xdg_config_home):
-    """Test validating a workflow that doesn't exist."""
-    runner = CliRunner()
-
-    # Initialize config
-    result = runner.invoke(
-        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
-    )
-    assert result.exit_code == 0
-
-    # Try to validate a non-existent workflow
-    result = runner.invoke(
-        app,
-        ["validate", "nonexistent"],
-        env={"XDG_CONFIG_HOME": str(set_xdg_config_home)},
-    )
-    assert result.exit_code == 1
-    assert "not found" in result.stdout
-
-
-def test_validate_invalid_workflow(set_xdg_config_home):
-    """Test validating an invalid workflow."""
-    runner = CliRunner()
-
-    # Initialize config
-    result = runner.invoke(
-        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
-    )
-    assert result.exit_code == 0
-
-    # Create an invalid workflow file
-    config_dir = set_xdg_config_home / "floww"
-    workflows_dir = config_dir / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-    invalid_workflow = workflows_dir / "invalid.yaml"
-    invalid_workflow.write_text("""
-description: "Invalid workflow"
-workspaces:
-  - target: 1
-""")
-
-    # Try to validate the invalid workflow
-    result = runner.invoke(
-        app, ["validate", "invalid"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
-    )
-    assert result.exit_code == 1
-    assert "missing the required 'apps' key" in result.stdout

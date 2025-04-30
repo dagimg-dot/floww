@@ -29,12 +29,19 @@ def test_remove_single_workflow(set_xdg_config_home):
     )
     assert result.exit_code == 0
 
-    # Create one workflow file
+    # Create one workflow file with valid schema
     cfg = ConfigManager()
     workflows_dir = cfg.workflows_dir
     file_path = workflows_dir / "demo.yaml"
     workflows_dir.mkdir(parents=True, exist_ok=True)
-    file_path.write_text("dummy: 1")
+    file_path.write_text("""
+description: "Demo workflow"
+workspaces:
+  - target: 1
+    apps:
+      - name: "Terminal"
+        exec: "gnome-terminal"
+""")
     assert file_path.exists()
 
     # Force-remove the workflow
@@ -56,14 +63,31 @@ def test_remove_multiple_workflows(set_xdg_config_home):
     )
     assert result.exit_code == 0
 
-    # Create two workflow files
+    # Create two workflow files with valid schema
     cfg = ConfigManager()
     workflows_dir = cfg.workflows_dir
     workflows_dir.mkdir(parents=True, exist_ok=True)
     file1 = workflows_dir / "foo.yaml"
     file2 = workflows_dir / "bar.yaml"
-    file1.write_text("dummy: foo")
-    file2.write_text("dummy: bar")
+
+    file1.write_text("""
+description: "Foo workflow"
+workspaces:
+  - target: 1
+    apps:
+      - name: "Browser"
+        exec: "firefox"
+""")
+
+    file2.write_text("""
+description: "Bar workflow"
+workspaces:
+  - target: 2
+    apps:
+      - name: "Editor"
+        exec: "code"
+""")
+
     assert file1.exists() and file2.exists()
 
     # Force-remove both
