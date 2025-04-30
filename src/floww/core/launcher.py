@@ -63,16 +63,19 @@ class AppLauncher:
         """Launch a binary application with the given arguments."""
         executable = os.path.expanduser(executable)
         cmd = [executable] + args
+        logger.info(f"Launching {app_name} ({executable}) with {args}")
         return self._launch_process(cmd, app_name)
 
     def _launch_flatpak(self, app_id: str, args: List[str], app_name: str) -> bool:
         """Launch a Flatpak application with the given arguments."""
         cmd = ["flatpak", "run"] + [app_id] + args
+        logger.info(f"Launching {app_name} ({app_id}) with {args}")
         return self._launch_process(cmd, app_name)
 
     def _launch_snap(self, snap_name: str, args: List[str], app_name: str) -> bool:
         """Launch a Snap application with the given arguments."""
         cmd = [snap_name] + args
+        logger.info(f"Launching {app_name} ({snap_name}) with {args}")
         return self._launch_process(cmd, app_name)
 
     def _launch_process(self, cmd: List[str], app_name: str) -> bool:
@@ -84,12 +87,15 @@ class AppLauncher:
         """
         try:
             # Detach the process from the parent process group
-            if os.name == "posix":
-                # Create a new session and redirect output to /dev/null
-                with open(os.devnull, "w") as devnull:
-                    process = subprocess.Popen(
-                        cmd, stdout=devnull, stderr=devnull, start_new_session=True
-                    )
+            # Create a new session and redirect output to /dev/null
+            with open(os.devnull, "w") as devnull:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=devnull,
+                    stderr=devnull,
+                    start_new_session=True,
+                    env=os.environ.copy(),
+                )
 
             logger.info(f"Launched: {app_name} (PID: {process.pid})")
             return True
