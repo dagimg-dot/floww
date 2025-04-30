@@ -20,8 +20,7 @@ def validate(
     typer.echo(f"Validating workflow: {workflow_name}")
 
     try:
-        workflow_data = cfg.load_workflow(workflow_name)
-        cfg.validate_workflow(workflow_name, workflow_data)
+        cfg.load_workflow(workflow_name)
         typer.echo("✓ Workflow is valid")
     except (WorkflowNotFoundError, WorkflowSchemaError, ConfigError) as e:
         print_error(f"Validation failed: {e}")
