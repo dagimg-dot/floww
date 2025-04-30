@@ -20,7 +20,7 @@
 
 ## Features
 
-*   **YAML-based Workflows:** Define complex setups in easy-to-read YAML files.
+*   **Workflows:** Define your workflows in a configuration file of your choice. (currently supporting ***yaml***, ***json*** and ***toml***)
 *   **Workspace Management:** Automatically switch to specified virtual desktops/workspaces.
 *   **Application Launching:** Launch binaries, Flatpaks, and Snaps with arguments.
 *   **Flexible Timing:** Configure wait times between actions for smoother transitions.
@@ -89,12 +89,15 @@ It's recommended to install `floww` in a virtual environment.
 
 `floww` provides several commands to manage and apply your workflows.
 
+> **Note:** All options have short and long forms. like `-e` and `--edit`.
+
 1.  **Initialize Configuration:**
     Run this first to create the necessary configuration directory (`~/.config/floww`) and workflows subdirectory.
     ```bash
     floww init
     ```
     *   Use `floww init --example` to also create a sample `example.yaml` workflow file.
+    *   Use `floww init --example --type <type>` to create a sample workflow file of the specified type.
 
 2.  **List Available Workflows:**
     See the names of all workflows defined in `~/.config/floww/workflows/`.
@@ -109,6 +112,7 @@ It's recommended to install `floww` in a virtual environment.
     ```
     *   Example: `floww add coding` creates `~/.config/floww/workflows/coding.yaml`.
     *   Use `floww add <workflow-name> --edit` or `-e` to open the new file in your default editor immediately after creation.
+    *   Use `floww add <workflow-name> --type <type>` or `-t <type>` to create a new workflow file of the specified type.
 
 4.  **Edit an Existing Workflow:**
     Open a workflow file in your default editor.
@@ -177,64 +181,11 @@ It's recommended to install `floww` in a virtual environment.
 
 *   **Location:** `~/.config/floww/workflows/`
 *   **Purpose:** Contains individual workflow definitions.
-*   **Format:** Each workflow is a separate YAML file named `<workflow-name>.yaml`.
+*   **Format:** Each workflow is a separate file named `<workflow-name>.(yaml|json|toml)`.
 
-#### Workflow File Structure
+#### Workflow File Structure (YAML)
 
-Each workflow YAML file defines the sequence of actions:
-
-```yaml
-# Optional: A brief description of the workflow's purpose.
-description: "Development setup for Project Phoenix."
-
-# Required: A list of workspace configurations to apply in order.
-workspaces:
-  - # First workspace definition
-    target: 1    # Required: The target workspace number (0-indexed).
-    apps:        # Required: A list of applications to launch on this workspace.
-      - name: "Code Editor"          # Required: User-friendly name for the app.
-        exec: "code"               # Required: The executable command or path. Tilde (~) is expanded.
-        type: "binary"             # Optional: Type of app. Defaults to "binary". Options: "binary", "flatpak", "snap".
-        args: ["~/projects/phoenix"] # Optional: List of arguments passed to the executable. Tilde (~) is expanded. Args are converted to strings.
-        wait: 2.5                  # Optional: Specific wait time (seconds) after launching THIS app. Overrides global 'app_launch_wait' if 'respect_app_wait' is true.
-
-      - name: "Main Terminal"
-        exec: "gnome-terminal"
-        type: "binary"
-        args: ["--working-directory=~/projects/phoenix"]
-
-  - # Second workspace definition
-    target: 2
-    apps:
-      - name: "API Client"
-        exec: "com.getpostman.Postman" # Flatpak App ID
-        type: "flatpak"
-
-      - name: "Documentation Browser"
-        exec: "firefox"
-        args: ["http://localhost:8000"]
-        wait: 0 # Explicitly wait 0 seconds after this, even if it's not the last app.
-
-# Optional: The workspace number to switch to AFTER all 'workspaces' definitions have been processed.
-final_workspace: 1
-```
-
-**Key Fields Explained:**
-
-*   `description` (Optional, String): Human-readable description.
-*   `workspaces` (Required, List): A list of workspace objects to process sequentially.
-    *   `target` (Required, Integer >= 0): The zero-indexed workspace number to switch to.
-    *   `apps` (Required, List): A list of application objects to launch on this workspace.
-        *   `name` (Required, String): A name for the application (used in output messages).
-        *   `exec` (Required, String): The command, executable path, Flatpak App ID, or Snap name. Tilde (`~`) is expanded to the user's home directory.
-        *   `type` (Optional, String): Specifies how to launch the app. Defaults to `binary`.
-            *   `binary`: Executes the `exec` value directly (e.g., `/usr/bin/firefox`, `code`, `~/scripts/my_tool`).
-            *   `flatpak`: Runs `flatpak run <exec> [args...]`. `exec` should be the Flatpak Application ID (e.g., `org.mozilla.firefox`).
-            *   `snap`: Runs `<exec> [args...]`. `exec` should be the snap command name (e.g., `spotify`).
-        *   `args` (Optional, List): A list of command-line arguments to pass to the application. Arguments are converted to strings. Tilde (`~`) is expanded within string arguments.
-        *   `wait` (Optional, Float >= 0): Seconds to wait after launching *this specific application*. If `respect_app_wait` is `true` in `config.yaml`, this value is used instead of the global `app_launch_wait`. If this is the *last app* in the *last workspace*, this wait occurs *before* switching to the `final_workspace` (if defined). If this is the *last app* in an *intermediate* workspace, this wait occurs *before* switching to the *next* workspace (overriding `workspace_switch_wait`).
-
-*   `final_workspace` (Optional, Integer >= 0): After processing all workspace definitions in the `workspaces` list, switch to this workspace number.
+Each workflow configuration file defines the sequence of actions:
 
 ## Example Workflow (`~/.config/floww/workflows/web-dev.yaml`)
 
@@ -277,6 +228,25 @@ workspaces:
 final_workspace: 0
 ```
 
+> **Note:** The workflow file can be `yaml`, `json` or `toml`. However, the it must be valid for the type it is. 
+
+**Key Fields Explained:**
+
+*   `description` (Optional, String): Human-readable description.
+*   `workspaces` (Required, List): A list of workspace objects to process sequentially.
+    *   `target` (Required, Integer >= 0): The zero-indexed workspace number to switch to.
+    *   `apps` (Required, List): A list of application objects to launch on this workspace.
+        *   `name` (Required, String): A name for the application (used in output messages).
+        *   `exec` (Required, String): The command, executable path, Flatpak App ID, or Snap name. Tilde (`~`) is expanded to the user's home directory.
+        *   `type` (Optional, String): Specifies how to launch the app. Defaults to `binary`.
+            *   `binary`: Executes the `exec` value directly (e.g., `/usr/bin/firefox`, `code`, `~/scripts/my_tool`).
+            *   `flatpak`: Runs `flatpak run <exec> [args...]`. `exec` should be the Flatpak Application ID (e.g., `org.mozilla.firefox`).
+            *   `snap`: Runs `<exec> [args...]`. `exec` should be the snap command name (e.g., `spotify`).
+        *   `args` (Optional, List): A list of command-line arguments to pass to the application. Arguments are converted to strings. Tilde (`~`) is expanded within string arguments.
+        *   `wait` (Optional, Float >= 0): Seconds to wait after launching *this specific application*. If `respect_app_wait` is `true` in `config.yaml`, this value is used instead of the global `app_launch_wait`. If this is the *last app* in the *last workspace*, this wait occurs *before* switching to the `final_workspace` (if defined). If this is the *last app* in an *intermediate* workspace, this wait occurs *before* switching to the *next* workspace (overriding `workspace_switch_wait`).
+
+*   `final_workspace` (Optional, Integer >= 0): After processing all workspace definitions in the `workspaces` list, switch to this workspace number.
+
 **To apply this example:**
 
 1.  Save the content above as `~/.config/floww/workflows/web-dev.yaml`.
@@ -314,8 +284,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
     *   **Solution:** Check the spelling of the workflow name. Use `floww list` to see available workflows. Ensure the file is in the correct directory.
 
 *   **Error: Validation failed: <schema error message>**
-    *   **Cause:** The workflow YAML file has incorrect syntax or structure (e.g., missing required keys like `target` or `apps`, incorrect data types).
-    *   **Solution:** Run `floww validate <name>` to get specific details about the schema violation. Compare your workflow file structure against the [Configuration](#configuration) section and the [Example Workflow](#example-workflow). Check YAML indentation carefully.
+    *   **Cause:** The workflow file has incorrect syntax or structure (e.g., missing required keys like `target` or `apps`, incorrect data types).
+    *   **Solution:** Run `floww validate <name>` to get specific details about the schema violation. Compare your workflow file structure against the [Configuration](#configuration) section and the [Example Workflow](#example-workflow). If it's a YAML file, check YAML indentation carefully.
 
 *   **Error launching <App Name>: Command not found...**
     *   **Cause:** The executable specified in the `exec` field cannot be found.
@@ -339,3 +309,9 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 *   **Notifications ("Workflow applied successfully", "Workflow completed with errors") don't appear:**
     *   **Cause:** `notify-send` command is not available or the notification daemon isn't running.
     *   **Solution:** Install `libnotify-bin` or equivalent package for your distribution (see [Prerequisites](#prerequisites)). Ensure your desktop environment's notification service is running.
+*   **Final workspace is not being applied:**
+    *   **Cause:** The last app in the last workspace might be taking too long to launch.
+    *   **Solution:** Add a `wait` value to the last app in the last workspace.
+    *   **Note:** If the last app in the last workspace has a `wait` value, the final workspace will be applied after the wait time.
+    *   **Cause:** You are using `toml` as the workflow file type and final_workspace is at the end of the file.
+    *   **Solution:** Bring the final_workspace definition up above the worskpaces section
