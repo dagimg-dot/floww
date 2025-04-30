@@ -1,7 +1,7 @@
 import pytest
 import yaml
 
-from floww.config import ConfigManager
+from floww import ConfigManager
 
 
 @pytest.fixture(autouse=True)

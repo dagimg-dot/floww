@@ -1,9 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-from floww.errors import AppLaunchError
 
-from floww.app_launcher import AppLauncher
+from floww import AppLaunchError, AppLauncher
 
 
 @pytest.fixture
@@ -18,7 +17,7 @@ def test_launch_binary_app(app_launcher):
         "args": ["--flag", "value"],
     }
 
-    with patch("floww.app_launcher.subprocess.Popen") as mock_popen:
+    with patch("floww.core.launcher.subprocess.Popen") as mock_popen:
         mock_process = MagicMock()
         mock_process.pid = 12345
         mock_popen.return_value = mock_process
@@ -41,7 +40,7 @@ def test_launch_flatpak_app(app_launcher):
         "args": ["--arg1", "value1"],
     }
 
-    with patch("floww.app_launcher.subprocess.Popen") as mock_popen:
+    with patch("floww.core.launcher.subprocess.Popen") as mock_popen:
         mock_process = MagicMock()
         mock_process.pid = 12345
         mock_popen.return_value = mock_process
@@ -64,7 +63,7 @@ def test_launch_snap_app(app_launcher):
         "args": ["--config", "~/config.yaml"],
     }
 
-    with patch("floww.app_launcher.subprocess.Popen") as mock_popen:
+    with patch("floww.core.launcher.subprocess.Popen") as mock_popen:
         mock_process = MagicMock()
         mock_process.pid = 12345
         mock_popen.return_value = mock_process
@@ -121,7 +120,7 @@ def test_launch_app_with_tilde_in_exec(app_launcher):
         "exec": "~/bin/app",
     }
 
-    with patch("floww.app_launcher.subprocess.Popen") as mock_popen:
+    with patch("floww.core.launcher.subprocess.Popen") as mock_popen:
         mock_process = MagicMock()
         mock_process.pid = 12345
         mock_popen.return_value = mock_process

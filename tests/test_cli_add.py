@@ -2,7 +2,7 @@ import pytest
 from typer.testing import CliRunner
 
 from floww.cli import app
-from floww.config import ConfigManager
+from floww import ConfigManager
 
 
 @pytest.fixture(autouse=True)
@@ -92,9 +92,7 @@ def test_add_existing_workflow_same_extension(set_xdg_config_home):
         app, ["add", "existing"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
     )
     assert result.exit_code == 1
-    assert (
-        "Workflow 'existing' already exists with extension(s): .yaml" in result.stdout
-    )
+    assert "Workflow 'existing' already exists with extension: .yaml" in result.stdout
 
 
 def test_add_existing_workflow_different_extension(set_xdg_config_home):
@@ -121,9 +119,7 @@ def test_add_existing_workflow_different_extension(set_xdg_config_home):
         env={"XDG_CONFIG_HOME": str(set_xdg_config_home)},
     )
     assert result.exit_code == 1
-    assert (
-        "Workflow 'crosstype' already exists with extension(s): .json" in result.stdout
-    )
+    assert "Workflow 'crosstype' already exists with extension: .json" in result.stdout
 
 
 def test_add_existing_workflow_multiple_extensions(set_xdg_config_home):
@@ -151,6 +147,6 @@ def test_add_existing_workflow_multiple_extensions(set_xdg_config_home):
         env={"XDG_CONFIG_HOME": str(set_xdg_config_home)},
     )
     assert result.exit_code == 1
-    assert "Workflow 'multitype' already exists with extension(s):" in result.stdout
+    assert "Workflow 'multitype' already exists with extension:" in result.stdout
     assert ".json" in result.stdout
     assert ".yaml" in result.stdout

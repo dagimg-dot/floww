@@ -2,7 +2,7 @@ import pytest
 from typer.testing import CliRunner
 
 from floww.cli import app
-from floww.config import ConfigManager
+from floww import ConfigManager
 
 
 @pytest.fixture(autouse=True)

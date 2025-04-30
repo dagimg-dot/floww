@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from floww.workflow_manager import WorkflowManager
+from floww import WorkflowManager
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def test_apply_empty_workflow(workflow_manager):
 def test_apply_workflow_with_description(workflow_manager):
     workflow_data = {"description": "Test workflow", "workspaces": []}
 
-    with patch("floww.workflow_manager.typer.echo") as mock_echo:
+    with patch("floww.core.workflow.typer.echo") as mock_echo:
         success = workflow_manager.apply(workflow_data)
         assert success is True
         mock_echo.assert_any_call("Workflow: Test workflow")
@@ -54,7 +54,7 @@ def test_apply_workflow_launch_apps(workflow_manager):
     # Mock successful app launches
     workflow_manager.app_launcher.launch_app = MagicMock(return_value=True)
 
-    with patch("floww.workflow_manager.typer.secho") as mock_secho:
+    with patch("floww.core.workflow.typer.secho") as mock_secho:
         success = workflow_manager.apply(workflow_data)
         assert success is True
 
@@ -92,9 +92,9 @@ def test_apply_workflow_app_launch_failure(workflow_manager):
     # Mock app launch failure
     workflow_manager.app_launcher.launch_app = MagicMock(return_value=False)
 
-    with patch("floww.workflow_manager.typer.secho") as mock_secho:
+    with patch("floww.core.workflow.typer.secho") as mock_secho:
         # Patch time.sleep to avoid actual waits
-        with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+        with patch("floww.core.workflow.time.sleep") as mock_sleep:
             success = workflow_manager.apply(workflow_data)
             assert success is False  # Should fail due to app launch failure
 
@@ -172,7 +172,7 @@ def test_apply_workflow_with_wait(workflow_manager):
 
     # Patch time.sleep and typer.echo/secho
     with (
-        patch("floww.workflow_manager.time.sleep") as mock_sleep,
+        patch("floww.core.workflow.time.sleep") as mock_sleep,
     ):
         success = workflow_manager.apply(workflow_data)
         assert success is True  # Should succeed even with wait issues
@@ -222,7 +222,7 @@ def test_workflow_respects_workspace_switch_wait(workflow_manager):
     )
 
     with (
-        patch("floww.workflow_manager.time.sleep") as mock_sleep,
+        patch("floww.core.workflow.time.sleep") as mock_sleep,
     ):
         success = workflow_manager.apply(workflow_data)
         assert success is True
@@ -265,8 +265,8 @@ def test_workflow_respects_app_launch_wait(workflow_manager):
     )
 
     with (
-        patch("floww.workflow_manager.time.sleep") as mock_sleep,
-        patch("floww.workflow_manager.typer.echo") as mock_echo,
+        patch("floww.core.workflow.time.sleep") as mock_sleep,
+        patch("floww.core.workflow.typer.echo") as mock_echo,
     ):
         success = workflow_manager.apply(workflow_data)
         assert success is True
@@ -308,8 +308,8 @@ def test_workflow_respects_app_specific_wait(workflow_manager):
     )
 
     with (
-        patch("floww.workflow_manager.time.sleep") as mock_sleep,
-        patch("floww.workflow_manager.typer.echo") as mock_echo,
+        patch("floww.core.workflow.time.sleep") as mock_sleep,
+        patch("floww.core.workflow.typer.echo") as mock_echo,
     ):
         success = workflow_manager.apply(workflow_data)
         assert success is True
@@ -356,8 +356,8 @@ def test_workflow_disables_app_specific_wait(workflow_manager):
     )
 
     with (
-        patch("floww.workflow_manager.time.sleep") as mock_sleep,
-        patch("floww.workflow_manager.typer.echo") as mock_echo,
+        patch("floww.core.workflow.time.sleep") as mock_sleep,
+        patch("floww.core.workflow.typer.echo") as mock_echo,
     ):
         success = workflow_manager.apply(workflow_data)
         assert success is True
@@ -400,7 +400,7 @@ def test_workflow_respects_last_app_wait(workflow_manager):
     )
 
     with (
-        patch("floww.workflow_manager.time.sleep") as mock_sleep,
+        patch("floww.core.workflow.time.sleep") as mock_sleep,
     ):
         success = workflow_manager.apply(workflow_data)
         assert success is True
@@ -446,7 +446,7 @@ def test_workflow_respects_last_app_wait_with_final_workspace(workflow_manager):
         return_value=mock_timing_config
     )
 
-    with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+    with patch("floww.core.workflow.time.sleep") as mock_sleep:
         success = workflow_manager.apply(workflow_data)
         assert success is True
 
@@ -492,7 +492,7 @@ def test_workspace_wait_before_final_workspace(workflow_manager):
         return_value=mock_timing_config
     )
 
-    with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+    with patch("floww.core.workflow.time.sleep") as mock_sleep:
         success = workflow_manager.apply(workflow_data)
         assert success is True
 
@@ -536,7 +536,7 @@ def test_default_workspace_wait_before_final_workspace(workflow_manager):
         return_value=mock_timing_config
     )
 
-    with patch("floww.workflow_manager.time.sleep") as mock_sleep:
+    with patch("floww.core.workflow.time.sleep") as mock_sleep:
         success = workflow_manager.apply(workflow_data)
         assert success is True
 
