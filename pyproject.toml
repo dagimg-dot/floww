@@ -3,14 +3,15 @@ name = "floww"
 version = "0.2.1"
 description = "CLI tool to manage Linux workspaces and launch applications based on workflows defined in (TOML, YAML, JSON)"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Dagim G. Astatke", email = "dagim.astatke@gmail.com" }]
 requires-python = ">=3.13"
 dependencies = ["PyYAML", "typer", "questionary", "ewmhlib", "toml"]
 
 [project.optional-dependencies]
+dev = ["ruff>=0.11"]
 test = ["pytest"]
-build = ["pyinstaller"]
+build = ["pyinstaller>=6.13.0"]
 
 [project.scripts]
 floww = "floww.__main__:main"

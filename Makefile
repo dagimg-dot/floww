@@ -15,6 +15,7 @@ install-deps:
 	uv pip install -e .
 	uv pip install -e .[test]
 	uv pip install -e .[build]
+	uv pip install -e .[dev]
 
 clean:
 	rm -rf dist build *.spec __pycache__ .pytest_cache

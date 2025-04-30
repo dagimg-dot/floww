@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: "Build Binary"
+    name: "Build Binary in venv"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,20 +19,25 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.13.3"
 
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install uv using official action
+        uses: astral-sh/setup-uv@v1
+        with:
+          enable-cache: true
 
       - name: Check uv version
-        run: ~/.local/bin/uv --version
+        run: uv --version
 
-      - name: Install dependencies
-        run: ~/.local/bin/uv pip install --system . && ~/.local/bin/uv pip install --system .[build]
+      - name: Create virtual environment
+        run: uv venv
 
-      - name: Build with PyInstaller
+      - name: Install dependencies into venv
+        run: uv pip install . .[build]
+
+      - name: Build with PyInstaller from venv
         run: |
-          pyinstaller \
+          .venv/bin/python -m PyInstaller \
             --onefile \
             --hidden-import shellingham.posix \
             --name floww \
