@@ -10,9 +10,8 @@ from .errors import (
     WorkflowSchemaError,
     ConfigLoadError,
 )
-from .singleton import Singleton
-from .constants import DEFAULT_CONFIG, SAMPLE_WORKFLOW_CONTENT
-from .config_manager import ConfigLoader
+from .loader import ConfigLoader
+from floww.utils import Singleton, DEFAULT_CONFIG, SAMPLE_WORKFLOW_CONTENT
 
 logger = logging.getLogger(__name__)
 

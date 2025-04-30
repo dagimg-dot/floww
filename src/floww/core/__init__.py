@@ -1,12 +1,9 @@
-__version__ = "0.1.0"
-
-
-from .core import ConfigManager
-from .core import ConfigLoader
-from .core import WorkflowManager
-from .core import WorkspaceManager
-from .core import AppLauncher
-from .core import (
+from .config import ConfigManager
+from .loader import ConfigLoader
+from .workflow import WorkflowManager
+from .workspace import WorkspaceManager
+from .launcher import AppLauncher
+from .errors import (
     ConfigError,
     ConfigLoadError,
     WorkflowNotFoundError,

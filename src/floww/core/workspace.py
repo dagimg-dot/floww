@@ -12,7 +12,7 @@ except ImportError:
     EWMHLIB_AVAILABLE = False
 
 
-from .utils import run_command
+from floww.utils import run_command
 from .errors import WorkspaceError
 
 logger = logging.getLogger(__name__)

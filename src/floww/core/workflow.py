@@ -4,10 +4,10 @@ from typing import Dict, Any
 import time
 
 from .workspace import WorkspaceManager
-from .app_launcher import AppLauncher
+from .launcher import AppLauncher
 from .errors import AppLaunchError
 from .config import ConfigManager
-from .utils import notify
+from floww.utils import notify
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,5 @@
+from enum import Enum
+
 DEFAULT_CONFIG = {
     "timing": {
         "workspace_switch_wait": 3,  # Seconds to wait AFTER apps in a workspace before switching
@@ -28,3 +30,9 @@ SAMPLE_WORKFLOW_CONTENT = {
         },
     ],
 }
+
+
+class FileType(str, Enum):
+    YAML = "yaml"
+    JSON = "json"
+    TOML = "toml"
