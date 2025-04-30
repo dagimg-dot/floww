@@ -84,7 +84,7 @@ class AppLauncher:
         """
         try:
             # Detach the process from the parent process group
-            if os.name == "posix":  # Linux/Unix systems
+            if os.name == "posix":
                 # Create a new session and redirect output to /dev/null
                 with open(os.devnull, "w") as devnull:
                     process = subprocess.Popen(
@@ -96,7 +96,7 @@ class AppLauncher:
 
         except FileNotFoundError:
             error_msg = f"Command not found for '{app_name}': {cmd[0]}"
-            logger.error(error_msg)
+            logger.debug(error_msg)
             raise AppLaunchError(error_msg)
 
         except PermissionError:
