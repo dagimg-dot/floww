@@ -1,5 +1,5 @@
 import typer
-from typing import Optional
+from typing import Optional, List
 import questionary
 
 from floww.cli.helpers import (
@@ -12,37 +12,46 @@ from floww import ConfigManager
 
 
 def remove(
-    name: Optional[str] = typer.Argument(None, help="Name of the workflow to remove"),
+    names: Optional[List[str]] = typer.Argument(
+        None, help="Name(s) of the workflow(s) to remove"
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Remove a workflow file."""
     check_initialized()
     cfg = ConfigManager()
 
-    workflow_name = get_workflow_name(name, "remove", cfg)
+    names = names or []
 
-    workflow_files = []
-    for ext in cfg.config_loader.get_supported_formats():
-        path = cfg.workflows_dir / f"{workflow_name}{ext}"
-        if path.is_file():
-            workflow_files.append(path)
+    if not names:
+        selected = get_workflow_name(None, "remove", cfg)
+        names = [selected]
 
-    if not workflow_files:
-        print_error(f"Workflow '{workflow_name}' not found")
-        raise typer.Exit(1)
+    # Collect all files to remove
+    all_files = []
+    for workflow_name in names:
+        found = []
+        for ext in cfg.config_loader.get_supported_formats():
+            path = cfg.workflows_dir / f"{workflow_name}{ext}"
+            if path.is_file():
+                found.append(path)
+        if not found:
+            print_error(f"Workflow '{workflow_name}' not found")
+            raise typer.Exit(1)
+        all_files.extend(found)
 
     if not force:
-        confirm = questionary.confirm(
-            f"Are you sure you want to remove workflow '{workflow_name}'?",
-            default=False,
-        ).ask()
-
+        if len(names) > 1:
+            prompt = f"Are you sure you want to remove workflows {', '.join(names)}?"
+        else:
+            prompt = f"Are you sure you want to remove workflow '{names[0]}'?"
+        confirm = questionary.confirm(prompt, default=False).ask()
         if not confirm:
             typer.echo("Operation cancelled")
             raise typer.Exit(0)
 
     try:
-        for workflow_file in workflow_files:
+        for workflow_file in all_files:
             workflow_file.unlink()
             typer.echo(f"Removed workflow: {workflow_file.name}")
     except OSError as e:
@@ -50,5 +59,5 @@ def remove(
         raise typer.Exit(1)
     except Exception as e:
         print_error("An unexpected error occurred while removing the workflow.")
-        logger.exception(f"Unexpected error removing workflow '{workflow_name}': {e}")
+        logger.exception(f"Unexpected error removing workflow '{names[0]}': {e}")
         raise typer.Exit(1)
