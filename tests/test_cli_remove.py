@@ -24,7 +24,9 @@ def set_xdg_config_home(tmp_path, monkeypatch):
 def test_remove_single_workflow(set_xdg_config_home):
     runner = CliRunner()
     # Initialize config
-    result = runner.invoke(app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)})
+    result = runner.invoke(
+        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
+    )
     assert result.exit_code == 0
 
     # Create one workflow file
@@ -49,7 +51,9 @@ def test_remove_single_workflow(set_xdg_config_home):
 def test_remove_multiple_workflows(set_xdg_config_home):
     runner = CliRunner()
     # Initialize config
-    result = runner.invoke(app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)})
+    result = runner.invoke(
+        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
+    )
     assert result.exit_code == 0
 
     # Create two workflow files
@@ -79,7 +83,9 @@ def test_remove_multiple_workflows(set_xdg_config_home):
 def test_remove_nonexistent_workflow(set_xdg_config_home):
     runner = CliRunner()
     # Initialize config
-    result = runner.invoke(app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)})
+    result = runner.invoke(
+        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
+    )
     assert result.exit_code == 0
 
     # Attempt to remove a workflow that doesn't exist
@@ -89,4 +95,4 @@ def test_remove_nonexistent_workflow(set_xdg_config_home):
         env={"XDG_CONFIG_HOME": str(set_xdg_config_home)},
     )
     assert result.exit_code == 1
-    assert "Workflow 'nope' not found" in result.stdout 
+    assert "Workflow 'nope' not found" in result.stdout
