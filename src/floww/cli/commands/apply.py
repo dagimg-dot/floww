@@ -18,10 +18,18 @@ from floww import (
 )
 
 
-def apply(name: Optional[str] = typer.Argument(None, help="Workflow name to apply")):
+cfg = ConfigManager()
+
+
+def apply(
+    name: Optional[str] = typer.Argument(
+        None,
+        autocompletion=lambda: cfg.list_workflow_names(),
+        help="Workflow name to apply",
+    ),
+):
     """Apply the named workflow."""
     check_initialized()
-    cfg = ConfigManager()
     workflow_mgr = WorkflowManager()
     workflow_name = None
 

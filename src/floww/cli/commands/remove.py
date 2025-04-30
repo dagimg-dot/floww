@@ -10,16 +10,19 @@ from floww.cli.helpers import (
 )
 from floww import ConfigManager
 
+cfg = ConfigManager()
+
 
 def remove(
     names: Optional[List[str]] = typer.Argument(
-        None, help="Name(s) of the workflow(s) to remove"
+        None,
+        autocompletion=lambda: cfg.list_workflow_names(),
+        help="Name(s) of the workflow(s) to remove",
     ),
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Remove a workflow file."""
     check_initialized()
-    cfg = ConfigManager()
 
     names = names or []
 

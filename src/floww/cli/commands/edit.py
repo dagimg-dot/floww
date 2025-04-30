@@ -10,13 +10,18 @@ from floww.cli.helpers import (
 )
 from floww import ConfigManager
 
+cfg = ConfigManager()
+
 
 def edit(
-    name: Optional[str] = typer.Argument(None, help="Name of the workflow to edit"),
+    name: Optional[str] = typer.Argument(
+        None,
+        autocompletion=lambda: cfg.list_workflow_names(),
+        help="Name of the workflow to edit",
+    ),
 ):
     """Open a workflow file in the default editor."""
     check_initialized()
-    cfg = ConfigManager()
 
     workflow_name = get_workflow_name(name, "edit", cfg)
 
