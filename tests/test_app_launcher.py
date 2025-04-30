@@ -29,7 +29,7 @@ def test_launch_binary_app(app_launcher):
         mock_popen.assert_called_once()
         args, kwargs = mock_popen.call_args
         assert args[0] == ["test-app", "--flag", "value"]
-        assert kwargs["start_new_session"] is True
+        assert kwargs["start_new_session"] is False
 
 
 def test_launch_flatpak_app(app_launcher):
@@ -52,7 +52,7 @@ def test_launch_flatpak_app(app_launcher):
         mock_popen.assert_called_once()
         args, kwargs = mock_popen.call_args
         assert args[0] == ["flatpak", "run", "org.example.app", "--arg1", "value1"]
-        assert kwargs["start_new_session"] is True
+        assert kwargs["start_new_session"] is False
 
 
 def test_launch_snap_app(app_launcher):
@@ -77,7 +77,7 @@ def test_launch_snap_app(app_launcher):
         # Check that ~ was expanded in the args
         home = str(Path.home())
         assert args[0] == ["snap-app", "--config", f"{home}/config.yaml"]
-        assert kwargs["start_new_session"] is True
+        assert kwargs["start_new_session"] is False
 
 
 def test_launch_app_not_found(app_launcher):

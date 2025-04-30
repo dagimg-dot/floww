@@ -93,7 +93,7 @@ class AppLauncher:
                     cmd,
                     stdout=devnull,
                     stderr=devnull,
-                    start_new_session=True,
+                    start_new_session=False,
                     env=os.environ.copy(),
                 )
 
