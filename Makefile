@@ -30,6 +30,11 @@ test:
 build:
 	pyinstaller $(PYINSTALLER_OPTS) src/floww/__main__.py
 
+zip:
+	tar -czvf dist/floww-$(VERSION)-linux-x86_64.tar.gz dist/floww
+
+local-release: build zip
+
 bump:
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Error: VERSION is not set. Usage: make bump VERSION=x.y.z"; \
