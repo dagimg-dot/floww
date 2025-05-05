@@ -11,11 +11,19 @@ PYINSTALLER_OPTS=\
     --exclude-module pytest \
     --exclude-module tests \
 
-install-deps:
-	uv pip install -e .
+install-test-deps:
 	uv pip install -e .[test]
-	uv pip install -e .[build]
+
+install-dev-deps:
 	uv pip install -e .[dev]
+
+install-build-deps:
+	uv pip install -e .[build]
+
+install-main-deps:
+	uv pip install -e .
+
+install-deps: install-main-deps install-build-deps install-test-deps install-dev-deps
 
 clean:
 	rm -rf dist build *.spec __pycache__ .pytest_cache
@@ -29,6 +37,9 @@ test:
 
 build:
 	pyinstaller $(PYINSTALLER_OPTS) src/floww/__main__.py
+
+install: install-main-deps install-build-deps build
+	cp dist/floww ~/.local/bin/floww
 
 zip:
 	tar -czvf dist/floww-$(VERSION)-linux-x86_64.tar.gz dist/floww
