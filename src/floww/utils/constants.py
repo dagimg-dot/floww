@@ -1,6 +1,7 @@
 from enum import Enum
 
 DEFAULT_CONFIG = {
+    "general": {"show_notifications": True},
     "timing": {
         "workspace_switch_wait": 3,  # Seconds to wait AFTER apps in a workspace before switching
         "app_launch_wait": 1,  # Default seconds to wait after launching each app (if not last)

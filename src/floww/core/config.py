@@ -1,5 +1,4 @@
 import os
-import yaml
 from pathlib import Path
 from typing import Dict, List, Any
 import logging
@@ -47,7 +46,7 @@ class ConfigManager(metaclass=Singleton):
 
         logger.debug(f"User configuration: {user_config}")
 
-        merged_config = yaml.safe_load(yaml.dump(self.default_conf))
+        merged_config = self.default_conf
 
         if isinstance(user_config.get("timing"), dict):
             user_timing = user_config["timing"]
@@ -75,6 +74,13 @@ class ConfigManager(metaclass=Singleton):
                             logger.warning(
                                 f"Invalid non-boolean value for '{key}' ('{value}'). Using default ({default_value})."
                             )
+
+        if isinstance(user_config.get("general"), dict):
+            user_general = user_config["general"]
+
+            for key, default_value in self.default_conf["general"].items():
+                if key in user_general:
+                    merged_config["general"][key] = user_general[key]
 
         logger.debug(f"Final merged configuration: {merged_config}")
         return merged_config
@@ -360,14 +366,21 @@ class ConfigManager(metaclass=Singleton):
 
     def get_timing_config(self) -> dict:
         """
-        Get timing configuration settings from the loaded config.
+        Get timing configuration settings from the loaded config.a
 
         Returns:
             dict: Dictionary with timing configuration values
         """
-        return self.config.get(
-            "timing", yaml.safe_load(yaml.dump(self.default_conf["timing"]))
-        )
+        return self.config["timing"]
+
+    def get_general_config(self) -> dict:
+        """
+        Get general configuration settings from the loaded config.
+
+        Returns:
+            dict: Dictionary with general configuration values
+        """
+        return self.config["general"]
 
     def is_initialized(self) -> bool:
         """Check if the config directory exists and is properly initialized."""

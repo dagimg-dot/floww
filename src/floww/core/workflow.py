@@ -19,7 +19,10 @@ class WorkflowManager:
         self.workspace_mgr = WorkspaceManager()
         self.app_launcher = AppLauncher()
         self.config_mgr = ConfigManager()
-        self.show_notifications = show_notifications
+        self.show_notifications = (
+            show_notifications
+            and self.config_mgr.get_general_config()["show_notifications"]
+        )
 
     def apply(self, workflow_data: Dict[str, Any], append: bool = False) -> bool:
         """
