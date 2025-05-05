@@ -51,13 +51,14 @@ class WorkflowManager:
 
         success = True
         num_workspaces = len(workflow_data.get("workspaces", []))
+        total_workspaces = self.workspace_mgr.get_total_workspaces()
 
         for workspace_idx, workspace in enumerate(workflow_data.get("workspaces", [])):
             target = workspace["target"]
             apps = workspace.get("apps", [])
 
             if append:
-                target += self.workspace_mgr.get_total_workspaces() - 1
+                target += total_workspaces - 1
 
             typer.echo(f"--> Switching to workspace {target}...")
             if not self.workspace_mgr.switch(target):
@@ -178,7 +179,7 @@ class WorkflowManager:
             final_workspace = workflow_data["final_workspace"]
 
             if append:
-                final_workspace += self.workspace_mgr.get_total_workspaces() - 1
+                final_workspace += total_workspaces - 1
 
             typer.echo(f"--> Switching to final workspace {final_workspace}...")
             if not self.workspace_mgr.switch(final_workspace):
