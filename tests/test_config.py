@@ -50,7 +50,7 @@ def test_list_workflows(tmp_path):
     workflows_dir.mkdir(parents=True, exist_ok=True)
 
     # No workflow files initially
-    assert config_mgr.list_workflows() == []
+    assert config_mgr.list_workflow_names() == []
 
     # Create sample workflow files
     (workflows_dir / "alpha.yaml").write_text("dummy: 1")
@@ -58,7 +58,7 @@ def test_list_workflows(tmp_path):
     # Non-YAML files should be ignored
     (workflows_dir / "ignore.txt").write_text("text")
 
-    names = config_mgr.list_workflows()
+    names = config_mgr.list_workflow_names()
     assert sorted(names) == ["alpha", "beta"]
 
 

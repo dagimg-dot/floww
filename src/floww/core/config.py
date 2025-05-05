@@ -354,21 +354,6 @@ class ConfigManager(metaclass=Singleton):
         self.validate_workflow(display_name, workflow_data)
         return workflow_data
 
-    def list_workflows(self) -> List[str]:
-        """Return list of workflow file names (without extension)."""
-        if not self.workflows_dir.is_dir():
-            return []
-
-        try:
-            workflows = set()
-            for ext in self.config_loader.get_supported_formats():
-                workflows.update([p.stem for p in self.workflows_dir.glob(f"*{ext}")])
-            return sorted(list(workflows))
-        except OSError as e:
-            raise ConfigError(
-                f"Failed to list workflows in {self.workflows_dir}: {e}"
-            ) from e
-
     def get_config(self) -> Dict[str, Any]:
         """Returns the currently loaded and merged configuration."""
         return self.config
