@@ -16,7 +16,7 @@
 |__/      |__/ \______/  \_____/\___/  \_____/\___/
 ```
 
-**floww** is a command-line utility designed to streamline your workflow setup on Linux desktops. Define your desired workspace layouts and application sets in simple YAML files, and let `floww` automate the process of switching workspaces and launching applications.
+**floww** is a command-line utility designed to streamline your workflow setup on Linux desktops. Define your desired workspace layouts and application sets in simple configuration files currently supporting ***yaml***, ***json*** and ***toml***, and let `floww` automate the process of switching workspaces and launching applications.
 
 ## Features
 
@@ -32,7 +32,7 @@
 
 Before installing `floww`, ensure you have the following dependencies:
 
-1.  **Workspace Switching Backend:** `floww` needs a tool to interact with your window manager/desktop environment. It prioritizes `ewmhlib` (Python library) and falls back to `wmctrl` (command-line tool). If the default `ewmhlib` fails, `floww` will fall back to `wmctrl`.
+1.  **Workspace Switching Backend:** `floww` needs a tool to interact with your window manager/desktop environment. It prioritizes `ewmhlib` (Python library, which is already packaged in `floww`) and falls back to `wmctrl` (command-line tool). If the default `ewmhlib` fails, `floww` will fall back to `wmctrl`.
     *   **`wmctrl`:** A common command-line tool, often needed as a fallback or if `ewmhlib` encounters issues (especially on Wayland setups where EWMH support might be incomplete).
     *   **Installation (wmctrl):**
         *   Debian/Ubuntu: `sudo apt update && sudo apt install wmctrl`
@@ -43,7 +43,7 @@ Before installing `floww`, ensure you have the following dependencies:
         *   Debian/Ubuntu: `sudo apt update && sudo apt install libnotify-bin`
         *   Fedora: `sudo dnf install libnotify`
         *   Arch Linux: `sudo pacman -S libnotify`
-3.  **Text Editor (for `edit` command):** The `floww edit` command uses the editor specified in your `$EDITOR` environment variable. If not set, it tries common editors like `vim`, `nano`, or `vi`. Set `$EDITOR` for the best experience: `export EDITOR=nano` (add this to your shell configuration, e.g., `.bashrc` or `.zshrc`).
+3.  **Text Editor (for `edit` command):** The `floww edit` command uses the editor specified in your `$EDITOR` environment variable. If not set, it tries common editors like `vim`, `vi`, or `nano`. Set `$EDITOR` for the best experience: `export EDITOR=vim` (add this to your shell configuration, e.g., `.bashrc` or `.zshrc`).
 
 ## Installation and Update
 
@@ -61,7 +61,7 @@ eget dagimg-dot/floww
 
 ## Building from Source
 
-It's recommended to install `floww` in a virtual environment.
+It's recommended to install `floww` in a virtual environment. [`uv`](https://github.com/astral-sh/uv) is recommended for this.
 
 1.  **Clone the repository (if you haven't already):**
     ```bash
@@ -77,7 +77,7 @@ It's recommended to install `floww` in a virtual environment.
 
 3.  **Install `floww`:**
     ```bash
-    make install-deps
+    make install
     ```
 
 4.  **Verify installation:**
@@ -91,8 +91,7 @@ It's recommended to install `floww` in a virtual environment.
 
 > **Note:** 
 > - All options have short and long forms. like `-e` and `--edit`.
-> - The commands `apply`, `remove`, `edit` and `validate` have autocompletion for workflow names.
-> - Checkout `floww --show-completion` and `floww --install-completion` for more information.
+> - The commands `apply`, `remove`, `edit` and `validate` have autocompletion for workflow names. Checkout `floww --show-completion` and `floww --install-completion` for more information.
 
 1.  **Initialize Configuration:**
     Run this first to create the necessary configuration directory (`~/.config/floww`) and workflows subdirectory.
@@ -115,7 +114,7 @@ It's recommended to install `floww` in a virtual environment.
     ```
     *   Example: `floww add coding` creates `~/.config/floww/workflows/coding.yaml`.
     *   Use `floww add <workflow-name> --edit` or `-e` to open the new file in your default editor immediately after creation.
-    *   Use `floww add <workflow-name> --type <type>` or `-t <type>` to create a new workflow file of the specified type.
+    *   Use `floww add <workflow-name> --type <type>` or `-t <type>` to create a new workflow file of the specified type. (currently supporting ***yaml***, ***json*** and ***toml***)
 
 4.  **Edit an Existing Workflow:**
     Open a workflow file in your default editor.
@@ -141,11 +140,12 @@ It's recommended to install `floww` in a virtual environment.
     *   If `<workflow-name>` is omitted, `floww` will present an interactive list of available workflows to choose from.
     *   Example: `floww apply coding`
     *   Use `floww apply --file <file-path>` to apply a workflow from a file path.
+    *   Use `floww apply --append` to start the workflow from the last workspace.
 
 7.  **Remove a Workflow:**
     Delete a workflow file.
     ```bash
-    floww remove <workflow-name>
+    floww remove <workflow-name-1> <workflow-name-2> ...
     ```
     *   If `<workflow-name>` is omitted, you'll get an interactive list to choose from.
     *   By default, it asks for confirmation. Use `--force` or `-f` to skip confirmation.
@@ -174,6 +174,8 @@ It's recommended to install `floww` in a virtual environment.
 *   **Format:** YAML
 *   **Default Structure (if file is empty or missing):**
     ```yaml
+    general:
+      show_notifications: true # Whether to show notifications
     timing:
       workspace_switch_wait: 3.0  # Seconds to wait AFTER launching all apps in a workspace before switching to the next, unless overridden by a specific app's 'wait'.
       app_launch_wait: 1.0      # Default seconds to wait AFTER launching an app, IF it's NOT the last app in its workspace list AND doesn't have its own 'wait' value.
@@ -232,7 +234,7 @@ workspaces:
 final_workspace: 0
 ```
 
-> **Note:** The workflow file can be `yaml`, `json` or `toml`. However, the it must be valid for the type it is. 
+> **Note:** The workflow file can be `yaml`, `json` or `toml`. However, it must be valid for the type it is. 
 
 **Key Fields Explained:**
 
@@ -318,4 +320,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
     *   **Solution:** Add a `wait` value to the last app in the last workspace.
     *   **Note:** If the last app in the last workspace has a `wait` value, the final workspace will be applied after the wait time.
     *   **Cause:** You are using `toml` as the workflow file type and final_workspace is at the end of the file.
-    *   **Solution:** Bring the final_workspace definition up above the worskpaces section
+    *   **Solution:** Bring the `final_workspace` definition up above the worskpaces section
