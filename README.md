@@ -18,6 +18,8 @@
 
 **floww** is a command-line utility designed to streamline your workflow setup on Linux desktops. Define your desired workspace layouts and application sets in simple configuration files currently supporting ***yaml***, ***json*** and ***toml***, and let `floww` automate the process of switching workspaces and launching applications.
 
+![showcase](./assets/showcase.gif)
+
 ## Features
 
 *   **Workflows:** Define your workflows in a configuration file of your choice. (currently supporting ***yaml***, ***json*** and ***toml***)
