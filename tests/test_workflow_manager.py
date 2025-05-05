@@ -1,7 +1,38 @@
 import pytest
 from unittest.mock import patch, MagicMock
+import time
 
 from floww import WorkflowManager
+
+
+class DummyWorkspaceManager:
+    def __init__(self):
+        self.calls = []
+
+    def get_total_workspaces(self):
+        return 5
+
+    def switch(self, desktop_num):
+        self.calls.append(desktop_num)
+        return True
+
+
+class DummyAppLauncher:
+    def __init__(self):
+        self.calls = []
+
+    def launch_app(self, app_config):
+        self.calls.append(app_config)
+        return True
+
+
+class DummyConfigManager:
+    def get_timing_config(self):
+        return {
+            "workspace_switch_wait": 0,
+            "app_launch_wait": 0,
+            "respect_app_wait": False,
+        }
 
 
 @pytest.fixture
@@ -547,3 +578,52 @@ def test_default_workspace_wait_before_final_workspace(workflow_manager):
 
         # Check both calls were made with workspace_switch_wait
         mock_sleep.assert_called_with(2.0)  # Workspace switch wait for both transitions
+
+
+def test_apply_appends_workspaces(monkeypatch):
+    """
+    Test that append=True causes workspace targets to be offset by total_workspaces - 1.
+    """
+    manager = WorkflowManager(show_notifications=False)
+    manager.workspace_mgr = DummyWorkspaceManager()
+    manager.app_launcher = DummyAppLauncher()
+    manager.config_mgr = DummyConfigManager()
+
+    # Avoid real sleep delays
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    workflow_data = {
+        "workspaces": [
+            {"target": 1, "apps": [{"exec": "foo"}]},
+            {"target": 2, "apps": [{"exec": "bar"}]},
+        ],
+    }
+
+    result = manager.apply(workflow_data, append=True)
+
+    assert result is True
+    # total_workspaces = 5, so offset = 5 - 1 = 4
+    assert manager.workspace_mgr.calls == [1 + 4, 2 + 4]
+
+
+def test_apply_no_append_uses_original(monkeypatch):
+    """
+    Test that append=False leaves workspace targets unchanged.
+    """
+    manager = WorkflowManager(show_notifications=False)
+    manager.workspace_mgr = DummyWorkspaceManager()
+    manager.app_launcher = DummyAppLauncher()
+    manager.config_mgr = DummyConfigManager()
+
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    workflow_data = {
+        "workspaces": [
+            {"target": 0, "apps": [{"exec": "foo"}]},
+        ],
+    }
+
+    result = manager.apply(workflow_data, append=False)
+
+    assert result is True
+    assert manager.workspace_mgr.calls == [0]

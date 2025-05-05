@@ -1,6 +1,6 @@
 import pytest
 from typer.testing import CliRunner
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 
 from floww.cli import app
 from floww import ConfigManager
@@ -206,3 +206,37 @@ def test_apply_workflow_failure(set_xdg_config_home, setup_workflow_file):
 
         # Verify workflow manager apply was called (and raised an exception)
         wm_instance.apply.assert_called_once()
+
+
+def test_apply_workflow_append_flag(set_xdg_config_home, setup_workflow_file):
+    """Test applying a workflow with the --append flag."""
+    runner = CliRunner()
+
+    # Initialize config
+    result = runner.invoke(
+        app, ["init"], env={"XDG_CONFIG_HOME": str(set_xdg_config_home)}
+    )
+    assert result.exit_code == 0
+
+    # Set up patches to prevent real application execution
+    with patch("floww.cli.commands.apply.WorkflowManager") as wm_mock:
+        # Configure mocks
+        wm_instance = MagicMock()
+        wm_mock.return_value = wm_instance
+        wm_instance.apply.return_value = True  # Simulate successful application
+
+        # Apply the workflow with the --append flag
+        result = runner.invoke(
+            app,
+            ["apply", "example", "--append"],
+            env={"XDG_CONFIG_HOME": str(set_xdg_config_home)},
+        )
+
+        # Assert the command exited successfully
+        assert result.exit_code == 0
+
+        # Assert that the WorkflowManager's apply method was called
+        # with the append argument set to True.
+        # We use ANY for the first argument (workflow_data) as we are
+        # primarily interested in the value of the 'append' flag here.
+        wm_instance.apply.assert_called_once_with(ANY, True)

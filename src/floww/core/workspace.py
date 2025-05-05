@@ -75,6 +75,13 @@ class WorkspaceManager:
                 )
             return True
 
+    def get_total_workspaces(self):
+        """Get the total number of workspaces available"""
+        if self.use_ewmh:
+            return self.ewmh.getNumberOfDesktops()
+        else:
+            return self._get_total_workspaces_with_wmctrl()
+
     def _switch_with_wmctrl(self, desktop_num: int) -> bool:
         """Internal helper to switch using wmctrl command. Returns success bool."""
         try:
@@ -94,3 +101,13 @@ class WorkspaceManager:
         except Exception as e:
             logger.error(f"Error running wmctrl command: {e}")
             return False
+
+    def _get_total_workspaces_with_wmctrl(self) -> int:
+        """Get total workspaces using wmctrl command."""
+        try:
+            cmd = [self.wmctrl_cmd, "-d"]
+            output = run_command(cmd)
+            return len(output.splitlines())
+        except Exception as e:
+            logger.error(f"Error getting total workspaces with wmctrl: {e}")
+            return 0

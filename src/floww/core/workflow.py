@@ -21,7 +21,7 @@ class WorkflowManager:
         self.config_mgr = ConfigManager()
         self.show_notifications = show_notifications
 
-    def apply(self, workflow_data: Dict[str, Any]) -> bool:
+    def apply(self, workflow_data: Dict[str, Any], append: bool = False) -> bool:
         """
         Apply a workflow by switching workspaces and launching apps.
 
@@ -52,6 +52,9 @@ class WorkflowManager:
         for workspace_idx, workspace in enumerate(workflow_data.get("workspaces", [])):
             target = workspace["target"]
             apps = workspace.get("apps", [])
+
+            if append:
+                target += self.workspace_mgr.get_total_workspaces() - 1
 
             typer.echo(f"--> Switching to workspace {target}...")
             if not self.workspace_mgr.switch(target):
@@ -170,6 +173,10 @@ class WorkflowManager:
             time.sleep(final_wait)
 
             final_workspace = workflow_data["final_workspace"]
+
+            if append:
+                final_workspace += self.workspace_mgr.get_total_workspaces() - 1
+
             typer.echo(f"--> Switching to final workspace {final_workspace}...")
             if not self.workspace_mgr.switch(final_workspace):
                 typer.secho(

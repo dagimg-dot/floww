@@ -27,6 +27,12 @@ def apply(
     file_path: Optional[str] = typer.Option(
         None, "--file", "-f", help="Path to the workflow file to apply"
     ),
+    append: bool = typer.Option(
+        False,
+        "--append",
+        "-a",
+        help="Append the workflow starting from the last workspace",
+    ),
 ):
     """Apply the named workflow."""
     check_initialized()
@@ -45,7 +51,7 @@ def apply(
             workflow_data = cfg.load_workflow(workflow_name)
 
         logger.info(f"Applying workflow: {workflow_name}")
-        workflow_mgr.apply(workflow_data)
+        workflow_mgr.apply(workflow_data, append)
 
     except (WorkflowNotFoundError, WorkflowSchemaError, ConfigError) as e:
         print_error(f"Failed to load workflow '{workflow_name or 'selected'}': {e}")
