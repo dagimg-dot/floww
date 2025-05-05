@@ -1,6 +1,6 @@
 [project]
 name = "floww"
-version = "0.3.0"
+version = "0.3.1"
 description = "CLI tool to manage Linux workspaces and launch applications based on workflows defined in (TOML, YAML, JSON)"
 readme = "README.md"
 license = "MIT"
