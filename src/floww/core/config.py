@@ -46,7 +46,8 @@ class ConfigManager(metaclass=Singleton):
 
         logger.debug(f"User configuration: {user_config}")
 
-        merged_config = self.default_conf
+        import copy
+        merged_config = copy.deepcopy(self.default_conf)
 
         if isinstance(user_config.get("timing"), dict):
             user_timing = user_config["timing"]
