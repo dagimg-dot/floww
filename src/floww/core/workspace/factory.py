@@ -4,7 +4,13 @@ import os
 from floww.core.config import ConfigManager
 from floww.utils.constants import VALID_WORKSPACE_BACKENDS
 
-from .backends import EwmhBackend, HyprlandBackend, WmctrlBackend, WorkspaceBackend
+from .backends import (
+    EwmhBackend,
+    HyprlandBackend,
+    NiriBackend,
+    WmctrlBackend,
+    WorkspaceBackend,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +31,21 @@ def _is_hyprland_session() -> bool:
     return os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") is not None
 
 
+def _is_niri_session() -> bool:
+    if os.environ.get("NIRI_SOCKET"):
+        return True
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "")
+    return desktop.lower() == "niri"
+
+
 def _detect_auto() -> WorkspaceBackend:
     if _is_hyprland_session():
         logger.info("Hyprland detected. Using hyprctl for workspace management.")
         return HyprlandBackend()
+
+    if _is_niri_session():
+        logger.info("Niri detected. Using niri msg for workspace management.")
+        return NiriBackend()
 
     ewmh = EwmhBackend.try_create()
     if ewmh is not None:
@@ -56,6 +73,8 @@ def create_backend(workspace_backend: str | None = None) -> WorkspaceBackend:
         return _detect_auto()
     if name == "hyprland":
         return HyprlandBackend()
+    if name == "niri":
+        return NiriBackend()
     if name == "ewmh":
         ewmh = EwmhBackend.try_create()
         if ewmh is not None:

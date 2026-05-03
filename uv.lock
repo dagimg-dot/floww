@@ -115,7 +115,7 @@ wheels = [
 
 [[package]]
 name = "floww"
-version = "0.3.1"
+version = "0.3.2"
 source = { virtual = "." }
 dependencies = [
     { name = "ewmhlib" },

@@ -1,0 +1,13 @@
+# Example workflow (copy to ~/.config/floww/workflows/ or use: floww apply -f path/to/this/file)
+description: "Workspace 1: terminal and Cursor"
+workspaces:
+  - target: 1
+    apps:
+      - name: Terminal
+        exec: kitty
+        type: binary
+  - target: 2
+    apps:
+      - name: VS Code
+        exec: code
+        type: binary

@@ -27,12 +27,15 @@ Workspace switching works through a small set of backends. With **`general.works
 | Backend | When it is used | Requirements |
 |--------|------------------|--------------|
 | **Hyprland** | `HYPRLAND_INSTANCE_SIGNATURE` is set | `hyprctl` |
-| **EWMH** | Hyprland not detected and `ewmhlib` can talk to the WM | `ewmhlib` (dependency) |
+| **Niri** | `NIRI_SOCKET` is set or `XDG_CURRENT_DESKTOP` is `niri` | `niri` (`niri msg`) |
+| **EWMH** | Hyprland/Niri not detected and `ewmhlib` can talk to the WM | `ewmhlib` (dependency) |
 | **wmctrl** | EWMH is not available | `wmctrl` installed |
 
-You can **force** a backend in `config.yaml`: `hyprland`, `ewmh`, or `wmctrl` (see [Configuration](#configuration)). Hyprland does not fall back to `wmctrl`.
+You can **force** a backend in `config.yaml`: `hyprland`, `niri`, `ewmh`, or `wmctrl` (see [Configuration](#configuration)). Hyprland and Niri do not fall back to `wmctrl`.
 
-**Typical setups:** Hyprland (Wayland); GNOME and many stacked WMs often work via **EWMH** and/or **`wmctrl`**, depending on session and Wayland/X11. Other compositors may work if EWMH or `wmctrl` applies; **niri** is not supported yet.
+**Niri note:** Workspaces are [dynamic and per-output](https://github.com/YaLTeR/niri/wiki/Workspaces). Use **1-based** ``target`` in YAML (first workspace is ``1``), same as niri’s ``idx`` in ``niri msg -j workspaces`` and the numeric argument to ``focus-workspace``. If you use **`workspace-auto-back-and-forth`**, floww skips ``focus-workspace`` when you are already on that workspace so it does not toggle away before launching apps.
+
+**Typical setups:** Hyprland or Niri (Wayland); GNOME and many stacked WMs often work via **EWMH** and/or **`wmctrl`**, depending on session and Wayland/X11.
 
 ## Features
 
@@ -48,7 +51,7 @@ You can **force** a backend in `config.yaml`: `hyprland`, `ewmh`, or `wmctrl` (s
 
 Before installing `floww`, ensure you have the following dependencies:
 
-1.  **Workspace Switching Backend:** `floww` picks a backend automatically, or you can set `general.workspace_backend` in `config.yaml` (see [Configuration](#configuration)). **Hyprland** is detected via the environment and uses `hyprctl`. Otherwise `floww` tries **EWMH** (`ewmhlib`, bundled as a dependency) and falls back to **`wmctrl`** if EWMH is unavailable. Hyprland does not fall back to `wmctrl`.
+1.  **Workspace switching backend:** `floww` picks a backend automatically, or set `general.workspace_backend` in `config.yaml` (see [Configuration](#configuration)). **Hyprland** uses `hyprctl`. **Niri** uses `niri msg` (install the `niri` package). Otherwise `floww` tries **EWMH** (`ewmhlib`, bundled) and falls back to **`wmctrl`**. Hyprland and Niri do not fall back to `wmctrl`.
     *   **`wmctrl`:** A common command-line tool, often needed as a fallback or if `ewmhlib` encounters issues (especially on Wayland setups where EWMH support might be incomplete).
     *   **Installation (wmctrl):**
         *   Debian/Ubuntu: `sudo apt update && sudo apt install wmctrl`
@@ -157,7 +160,7 @@ It's recommended to install `floww` in a virtual environment. [`uv`](https://git
     ```
     *   If `<workflow-name>` is omitted, `floww` will present an interactive list of available workflows to choose from.
     *   Example: `floww apply coding`
-    *   Use `floww apply --file <file-path>` to apply a workflow from a file path.
+    *   Use `floww apply --file <file-path>` to apply a workflow from any path (YAML, JSON, or TOML). This does **not** require `floww init`; global timing and notification settings use defaults until you create a config.
     *   Use `floww apply --append` to start the workflow from the last workspace.
 
 7.  **Remove a Workflow:**
@@ -194,7 +197,7 @@ It's recommended to install `floww` in a virtual environment. [`uv`](https://git
     ```yaml
     general:
       show_notifications: true # Whether to show notifications
-      workspace_backend: auto    # auto | hyprland | ewmh | wmctrl — auto detects Hyprland, then EWMH, then wmctrl
+      workspace_backend: auto    # auto | hyprland | niri | ewmh | wmctrl
     timing:
       workspace_switch_wait: 3.0  # Seconds to wait AFTER launching all apps in a workspace before switching to the next, unless overridden by a specific app's 'wait'.
       app_launch_wait: 1.0      # Default seconds to wait AFTER launching an app, IF it's NOT the last app in its workspace list AND doesn't have its own 'wait' value.

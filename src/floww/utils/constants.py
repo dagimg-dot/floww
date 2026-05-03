@@ -1,6 +1,6 @@
 from enum import Enum
 
-VALID_WORKSPACE_BACKENDS = frozenset({"auto", "hyprland", "ewmh", "wmctrl"})
+VALID_WORKSPACE_BACKENDS = frozenset({"auto", "hyprland", "niri", "ewmh", "wmctrl"})
 
 DEFAULT_CONFIG = {
     "general": {

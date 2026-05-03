@@ -136,6 +136,26 @@ def test_apply_workflow_from_file(set_xdg_config_home, setup_external_file):
             wm_instance.apply.assert_called_once()
 
 
+def test_apply_from_file_without_init(set_xdg_config_home, setup_external_file):
+    """`apply --file` does not require `floww init`; config defaults are used."""
+    runner = CliRunner()
+    assert not (set_xdg_config_home / "floww").exists()
+
+    with patch("floww.cli.commands.apply.WorkflowManager") as wm_mock:
+        wm_instance = MagicMock()
+        wm_mock.return_value = wm_instance
+        wm_instance.apply.return_value = True
+
+        result = runner.invoke(
+            app,
+            ["apply", "--file", str(setup_external_file)],
+            env={"XDG_CONFIG_HOME": str(set_xdg_config_home)},
+        )
+
+        assert result.exit_code == 0
+        wm_instance.apply.assert_called_once()
+
+
 def test_apply_nonexistent_file(set_xdg_config_home, tmp_path):
     """Test applying a workflow from a nonexistent file."""
     runner = CliRunner()

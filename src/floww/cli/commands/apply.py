@@ -35,7 +35,8 @@ def apply(
     ),
 ):
     """Apply the named workflow."""
-    check_initialized()
+    if not file_path:
+        check_initialized()
     cfg = ConfigManager()
     workflow_mgr = WorkflowManager()
     workflow_name = None
