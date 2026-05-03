@@ -3,12 +3,16 @@
 # But as a backup I am using wmctrl which works on wayland
 
 import logging
+import os
+import json
+import subprocess
 
 try:
     from ewmhlib import EwmhRoot
 
     EWMHLIB_AVAILABLE = True
-except ImportError:
+except Exception:
+    # ewmhlib might fail to import if X11/Xlib is not available or DISPLAY is not set
     EWMHLIB_AVAILABLE = False
 
 
@@ -23,6 +27,14 @@ class WorkspaceManager:
 
     def __init__(self):
         self.use_ewmh = EWMHLIB_AVAILABLE
+        self.is_hyprland = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE") is not None
+
+        if self.is_hyprland:
+            logger.info("Hyprland detected. Using hyprctl for workspace management.")
+            self.use_ewmh = False
+            self.wmctrl_cmd = None
+            self.hyprctl_cmd = "hyprctl"
+            return
 
         if not self.use_ewmh:
             logger.warning(
@@ -52,6 +64,13 @@ class WorkspaceManager:
         Raises:
             WorkspaceError: If switching fails using the preferred method.
         """
+        if self.is_hyprland:
+            if not self._switch_with_hyprctl(desktop_num):
+                raise WorkspaceError(
+                    f"Failed to switch to workspace {desktop_num} using hyprctl."
+                )
+            return True
+
         if self.use_ewmh:
             try:
                 num_desktops = self.ewmh.getNumberOfDesktops()
@@ -77,10 +96,32 @@ class WorkspaceManager:
 
     def get_total_workspaces(self):
         """Get the total number of workspaces available"""
+        if self.is_hyprland:
+            return self._get_total_workspaces_with_hyprctl()
         if self.use_ewmh:
             return self.ewmh.getNumberOfDesktops()
         else:
             return self._get_total_workspaces_with_wmctrl()
+
+    def _switch_with_hyprctl(self, desktop_num: int) -> bool:
+        """Internal helper to switch using hyprctl command. Returns success bool."""
+        try:
+            cmd = [self.hyprctl_cmd, "dispatch", "workspace", str(desktop_num)]
+            return run_command(cmd)
+        except Exception:
+            return False
+
+    def _get_total_workspaces_with_hyprctl(self) -> int:
+        """Get total workspaces using hyprctl command."""
+        try:
+            cmd = [self.hyprctl_cmd, "workspaces", "-j"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            workspaces = json.loads(result.stdout)
+            if not workspaces:
+                return 1
+            return max(ws["id"] for ws in workspaces)
+        except Exception:
+            return 0
 
     def _switch_with_wmctrl(self, desktop_num: int) -> bool:
         """Internal helper to switch using wmctrl command. Returns success bool."""
