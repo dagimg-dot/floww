@@ -15,7 +15,7 @@ from .core import (
     AppLaunchError,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 
 def _iter_dotenv_search_dirs() -> list[Path]:
