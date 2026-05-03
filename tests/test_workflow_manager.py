@@ -12,6 +12,9 @@ class DummyWorkspaceManager:
     def get_total_workspaces(self):
         return 5
 
+    def get_append_base_offset(self):
+        return max(0, self.get_total_workspaces() - 1)
+
     def switch(self, desktop_num):
         self.calls.append(desktop_num)
         return True

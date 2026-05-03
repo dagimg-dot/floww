@@ -20,6 +20,20 @@
 
 ![showcase](./assets/showcase.gif)
 
+## Supported workspace backends
+
+Workspace switching works through a small set of backends. With **`general.workspace_backend: auto`** (the default), `floww` chooses in this order:
+
+| Backend | When it is used | Requirements |
+|--------|------------------|--------------|
+| **Hyprland** | `HYPRLAND_INSTANCE_SIGNATURE` is set | `hyprctl` |
+| **EWMH** | Hyprland not detected and `ewmhlib` can talk to the WM | `ewmhlib` (dependency) |
+| **wmctrl** | EWMH is not available | `wmctrl` installed |
+
+You can **force** a backend in `config.yaml`: `hyprland`, `ewmh`, or `wmctrl` (see [Configuration](#configuration)). Hyprland does not fall back to `wmctrl`.
+
+**Typical setups:** Hyprland (Wayland); GNOME and many stacked WMs often work via **EWMH** and/or **`wmctrl`**, depending on session and Wayland/X11. Other compositors may work if EWMH or `wmctrl` applies; **niri** is not supported yet.
+
 ## Features
 
 *   **Workflows:** Define your workflows in a configuration file of your choice. (currently supporting ***yaml***, ***json*** and ***toml***)
@@ -34,7 +48,7 @@
 
 Before installing `floww`, ensure you have the following dependencies:
 
-1.  **Workspace Switching Backend:** `floww` needs a tool to interact with your window manager/desktop environment. It prioritizes `ewmhlib` (Python library, which is already packaged in `floww`) and falls back to `wmctrl` (command-line tool). If the default `ewmhlib` fails, `floww` will fall back to `wmctrl`.
+1.  **Workspace Switching Backend:** `floww` picks a backend automatically, or you can set `general.workspace_backend` in `config.yaml` (see [Configuration](#configuration)). **Hyprland** is detected via the environment and uses `hyprctl`. Otherwise `floww` tries **EWMH** (`ewmhlib`, bundled as a dependency) and falls back to **`wmctrl`** if EWMH is unavailable. Hyprland does not fall back to `wmctrl`.
     *   **`wmctrl`:** A common command-line tool, often needed as a fallback or if `ewmhlib` encounters issues (especially on Wayland setups where EWMH support might be incomplete).
     *   **Installation (wmctrl):**
         *   Debian/Ubuntu: `sudo apt update && sudo apt install wmctrl`
@@ -86,6 +100,8 @@ It's recommended to install `floww` in a virtual environment. [`uv`](https://git
     ```bash
     floww --version
     ```
+
+    For local development you can tag the reported version by: a **`.env`** file in the project tree (or current directory) with **`ENV=dev`** (shows e.g. `0.3.1@dev` for any non-empty value); or **`FLOWW_DEV=1`**; or **`FLOWW_VERSION_SUFFIX=@custom`** (highest precedence).
 
 ## Usage
 
@@ -178,6 +194,7 @@ It's recommended to install `floww` in a virtual environment. [`uv`](https://git
     ```yaml
     general:
       show_notifications: true # Whether to show notifications
+      workspace_backend: auto    # auto | hyprland | ewmh | wmctrl — auto detects Hyprland, then EWMH, then wmctrl
     timing:
       workspace_switch_wait: 3.0  # Seconds to wait AFTER launching all apps in a workspace before switching to the next, unless overridden by a specific app's 'wait'.
       app_launch_wait: 1.0      # Default seconds to wait AFTER launching an app, IF it's NOT the last app in its workspace list AND doesn't have its own 'wait' value.

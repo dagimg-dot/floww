@@ -11,6 +11,7 @@ from .errors import (
 )
 from .loader import ConfigLoader
 from floww.utils import Singleton, DEFAULT_CONFIG, SAMPLE_WORKFLOW_CONTENT
+from floww.utils.constants import VALID_WORKSPACE_BACKENDS
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class ConfigManager(metaclass=Singleton):
         logger.debug(f"User configuration: {user_config}")
 
         import copy
+
         merged_config = copy.deepcopy(self.default_conf)
 
         if isinstance(user_config.get("timing"), dict):
@@ -82,6 +84,14 @@ class ConfigManager(metaclass=Singleton):
             for key, default_value in self.default_conf["general"].items():
                 if key in user_general:
                     merged_config["general"][key] = user_general[key]
+
+        wb = merged_config["general"].get("workspace_backend", "auto")
+        wb_norm = str(wb).lower().strip()
+        if wb_norm not in VALID_WORKSPACE_BACKENDS:
+            logger.warning("Invalid workspace_backend %r in config; using 'auto'.", wb)
+            merged_config["general"]["workspace_backend"] = "auto"
+        else:
+            merged_config["general"]["workspace_backend"] = wb_norm
 
         logger.debug(f"Final merged configuration: {merged_config}")
         return merged_config

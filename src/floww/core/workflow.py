@@ -35,8 +35,6 @@ class WorkflowManager:
             bool: True if the workflow application process completed.
                   Note: Individual app launch failures are logged but don't cause
                   the entire workflow to return False unless workspace switching fails.
-        Raises:
-            WorkspaceError: If a workspace switch fails.
         """
         timing_config = self.config_mgr.get_timing_config()
         workspace_switch_wait = timing_config.get("workspace_switch_wait", 2)
@@ -51,14 +49,16 @@ class WorkflowManager:
 
         success = True
         num_workspaces = len(workflow_data.get("workspaces", []))
-        total_workspaces = self.workspace_mgr.get_total_workspaces()
+        append_base_offset = (
+            self.workspace_mgr.get_append_base_offset() if append else 0
+        )
 
         for workspace_idx, workspace in enumerate(workflow_data.get("workspaces", [])):
             target = workspace["target"]
             apps = workspace.get("apps", [])
 
             if append:
-                target += total_workspaces - 1
+                target += append_base_offset
 
             typer.echo(f"--> Switching to workspace {target}...")
             if not self.workspace_mgr.switch(target):
@@ -179,7 +179,7 @@ class WorkflowManager:
             final_workspace = workflow_data["final_workspace"]
 
             if append:
-                final_workspace += total_workspaces - 1
+                final_workspace += append_base_offset
 
             typer.echo(f"--> Switching to final workspace {final_workspace}...")
             if not self.workspace_mgr.switch(final_workspace):

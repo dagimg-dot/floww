@@ -1,7 +1,12 @@
 from enum import Enum
 
+VALID_WORKSPACE_BACKENDS = frozenset({"auto", "hyprland", "ewmh", "wmctrl"})
+
 DEFAULT_CONFIG = {
-    "general": {"show_notifications": True},
+    "general": {
+        "show_notifications": True,
+        "workspace_backend": "auto",
+    },
     "timing": {
         "workspace_switch_wait": 3,  # Seconds to wait AFTER apps in a workspace before switching
         "app_launch_wait": 1,  # Default seconds to wait after launching each app (if not last)

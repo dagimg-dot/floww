@@ -1,6 +1,6 @@
 import typer
 
-from floww import __version__ as VERSION
+from floww import version_display
 from .helpers import LogLevel, setup_logging, FLOWW_ART
 
 from .commands.init import init
@@ -44,7 +44,7 @@ def main_callback(
     setup_logging(log_level)
 
     if version:
-        typer.echo(f"floww version {VERSION}")
+        typer.echo(f"floww version {version_display()}")
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
         typer.echo(FLOWW_ART)
