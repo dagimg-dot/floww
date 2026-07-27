@@ -1,92 +1,32 @@
-name: Create Release
+name: Release
 
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: "Build Binary in venv"
+  goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
-          python-version: "3.13.3"
+          fetch-depth: 0
 
-      - name: Install uv using official action
-        uses: astral-sh/setup-uv@v1
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          enable-cache: true
+          go-version: ">=1.21.0"
+          check-latest: true
 
-      - name: Check uv version
-        run: uv --version
-
-      - name: Create virtual environment
-        run: uv venv
-
-      - name: Install dependencies into venv
-        run: uv pip install . .[build]
-
-      - name: Build with PyInstaller from venv
-        run: |
-          .venv/bin/python -m PyInstaller \
-            --onefile \
-            --hidden-import shellingham.posix \
-            --name floww \
-            --clean \
-            --noconfirm \
-            --strip \
-            --log-level WARN \
-            --upx-dir /usr/bin --upx-exclude '*.so' \
-            --exclude-module pytest \
-            --exclude-module tests \
-            src/floww/__main__.py
-
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Archive binary
-        run: |
-          cd dist
-          tar czvf floww-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz floww
-          cd ..
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         with:
-          name: floww-binary-${{ steps.get_version.outputs.VERSION }}
-          path: dist/floww-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz
-
-  release:
-    name: "Create GitHub Release"
-    needs: [build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Download Binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: floww-binary-${{ steps.get_version.outputs.VERSION }}
-
-      - name: List files
-        run: ls -lR
-
-      - name: Create Release and Upload Asset
-        uses: softprops/action-gh-release@v2
-        with:
-          files: floww-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz
-          generate_release_notes: true
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
