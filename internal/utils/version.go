@@ -8,7 +8,7 @@ import (
 )
 
 // Version is the current version of floww, matching Python __version__.
-var Version = "0.4.0"
+var Version = "0.5.0"
 
 // IterDotenvSearchDirs walks up from cwd up to 8 parent directories,
 // returning a deduplicated list of directories to search for a .env file.
