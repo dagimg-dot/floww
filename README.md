@@ -28,7 +28,7 @@ Workspace switching works through a small set of backends. With **`general.works
 |--------|------------------|--------------|
 | **Hyprland** | `HYPRLAND_INSTANCE_SIGNATURE` is set | `hyprctl` |
 | **Niri** | `NIRI_SOCKET` is set or `XDG_CURRENT_DESKTOP` is `niri` | `niri` (`niri msg`) |
-| **EWMH** | Hyprland/Niri not detected and `ewmhlib` can talk to the WM | `ewmhlib` (dependency) |
+| **EWMH** | Hyprland/Niri not detected and the EWMH backend can talk to the WM | XGB (Go X11 binding, built-in) |
 | **wmctrl** | EWMH is not available | `wmctrl` installed |
 
 You can **force** a backend in `config.yaml`: `hyprland`, `niri`, `ewmh`, or `wmctrl` (see [Configuration](#configuration)). Hyprland and Niri do not fall back to `wmctrl`.
@@ -51,8 +51,8 @@ You can **force** a backend in `config.yaml`: `hyprland`, `niri`, `ewmh`, or `wm
 
 Before installing `floww`, ensure you have the following dependencies:
 
-1.  **Workspace switching backend:** `floww` picks a backend automatically, or set `general.workspace_backend` in `config.yaml` (see [Configuration](#configuration)). **Hyprland** uses `hyprctl`. **Niri** uses `niri msg` (install the `niri` package). Otherwise `floww` tries **EWMH** (`ewmhlib`, bundled) and falls back to **`wmctrl`**. Hyprland and Niri do not fall back to `wmctrl`.
-    *   **`wmctrl`:** A common command-line tool, often needed as a fallback or if `ewmhlib` encounters issues (especially on Wayland setups where EWMH support might be incomplete).
+1.  **Workspace switching backend:** `floww` picks a backend automatically, or set `general.workspace_backend` in `config.yaml` (see [Configuration](#configuration)). **Hyprland** uses `hyprctl`. **Niri** uses `niri msg` (install the `niri` package). Otherwise `floww` tries **EWMH** and falls back to **`wmctrl`**. Hyprland and Niri do not fall back to `wmctrl`.
+    *   **`wmctrl`:** A common command-line tool, often needed as a fallback for environments where the EWMH backend is unavailable (especially on Wayland setups where EWMH support might be incomplete).
     *   **Installation (wmctrl):**
         *   Debian/Ubuntu: `sudo apt update && sudo apt install wmctrl`
         *   Fedora: `sudo dnf install wmctrl`
@@ -80,31 +80,31 @@ eget dagimg-dot/floww
 
 ## Building from Source
 
-It's recommended to install `floww` in a virtual environment. [`uv`](https://github.com/astral-sh/uv) is recommended for this.
+1. **Prerequisites:** Go 1.22+ and `make`.
 
-1.  **Clone the repository (if you haven't already):**
-    ```bash
-    git clone https://github.com/dagimg-dot/floww.git 
-    cd floww
-    ```
+2. **Clone the repository:**
+   ```bash
+   git clone https://github.com/dagimg-dot/floww.git
+   cd floww
+   ```
 
-2.  **Create and activate a virtual environment (using `uv`):**
-    ```bash
-    uv venv
-    source .venv/bin/activate
-    ```
+3. **Build:**
+   ```bash
+   make build
+   ```
+   The binary will be at `build/floww`.
 
-3.  **Install `floww`:**
-    ```bash
-    make install
-    ```
+4. **Install (optional):**
+   ```bash
+   cp build/floww ~/.local/bin/
+   ```
 
-4.  **Verify installation:**
-    ```bash
-    floww --version
-    ```
+5. **Verify:**
+   ```bash
+   floww --version
+   ```
 
-    For local development you can tag the reported version by: a **`.env`** file in the project tree (or current directory) with **`ENV=dev`** (shows e.g. `0.3.1@dev` for any non-empty value); or **`FLOWW_DEV=1`**; or **`FLOWW_VERSION_SUFFIX=@custom`** (highest precedence).
+For development builds you can append a version suffix: create a `.env` file in the project root with `FLOWW_VERSION_SUFFIX=@custom` or set the `FLOWW_VERSION_SUFFIX` environment variable.
 
 ## Usage
 
@@ -282,20 +282,15 @@ final_workspace: 0
 
 ## Contributing
 
-Contributions are welcome! Please follow these steps:
-
-1.  **Fork** the repository on GitHub.
-2.  **Clone** your fork locally: `git clone <your-fork-url>`
-3.  Create a **new branch** for your feature or fix: `git checkout -b feature/my-new-feature` or `git checkout -b fix/bug-description`.
-4.  Make your **code changes**.
-5.  **Add tests** for your changes in the `tests/` directory.
-6.  **Run tests:** Ensure all tests pass using `make test` (this uses `pytest`).
-7.  **Lint your code:** Ensure code style consistency using `make lint` (this uses `ruff`).
-8.  **Commit** your changes with a clear message: `git commit -m "Add feature: description"`
-9.  **Push** your branch to your fork: `git push origin feature/my-new-feature`
-10. Create a **Pull Request** on the original repository's `main` branch.
-
-Please also consider opening an issue first to discuss significant changes.
+1. **Fork** the repository on GitHub.
+2. **Clone** your fork locally.
+3. Create a **feature branch**: `git checkout -b feature/my-feature`
+4. **Make your changes.**
+5. **Format your code:** `make fmt`
+6. **Run tests:** `make test`
+7. **Run the linter:** `make lint`
+8. **Commit** with a clear message.
+9. **Push** to your fork and open a Pull Request.
 
 ## License
 
@@ -327,9 +322,9 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
     *   **Solution:** Check the file permissions. You might need to add execute permissions: `chmod +x /path/to/executable`.
 
 *   **Workspace switching doesn't work or switches incorrectly:**
-    *   **Cause:** Issues with `ewmhlib` or `wmctrl`, or incompatibility with your specific desktop environment/window manager (especially on Wayland).
+    *   **Cause:** Issues with the EWMH backend or `wmctrl`, or incompatibility with your specific desktop environment/window manager (especially on Wayland).
     *   **Solution:**
-        *   Ensure `wmctrl` is installed (see [Prerequisites](#prerequisites)). `floww` should fall back to it if `ewmhlib` fails.
+        *   Ensure `wmctrl` is installed (see [Prerequisites](#prerequisites)). `floww` should fall back to it if the EWMH backend fails.
         *   Check if your desktop environment fully supports EWMH (Extended Window Manager Hints), especially if using Wayland. Some Wayland compositors have limited or no support for external workspace control via these methods.
         *   Run `floww apply <name> --log-level DEBUG` and check the logs for specific errors related to `EwmhRoot` or `wmctrl`.
         *   Consult your desktop environment's documentation regarding external workspace control.
