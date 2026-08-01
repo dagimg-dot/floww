@@ -69,7 +69,7 @@ Before installing `floww`, ensure you have the following dependencies:
 1. **Using script**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dagimg-dot/floww/refs/heads/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/dagimg-dot/floww/refs/heads/main/scripts/install.sh | bash
 ```
 
 2. **Using [eget](https://github.com/zyedidia/eget)**
