@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/dagimg-dot/floww/internal/diagnostic"
 	"github.com/stretchr/testify/assert"
@@ -94,6 +95,56 @@ ws:
 	pos, ok = p.Position(diagnostic.Path("ws", "apps", 0, "name"))
 	require.True(t, ok)
 	assert.Equal(t, 4, pos.Line)
+}
+
+func TestPositions_YAMLAliasedSubtreeIsIndexed(t *testing.T) {
+	// ------------
+	content := `apps: &apps
+  - name: n
+    exec: e
+ws:
+  target: 0
+  apps: *apps
+`
+	p := buildPositionsFromYAML(parseYAMLNode(t, content))
+
+	// paths inside the aliased subtree resolve at the anchor definition
+	pos, ok := p.Position(diagnostic.Path("ws", "apps", 0, "name"))
+	require.True(t, ok)
+	assert.Equal(t, diagnostic.Position{Line: 2, Column: 11, Length: 1}, pos)
+
+	pos, ok = p.Position(diagnostic.Path("ws", "apps", 0, "exec"))
+	require.True(t, ok)
+	assert.Equal(t, diagnostic.Position{Line: 3, Column: 11, Length: 1}, pos)
+}
+
+func TestPositions_YAMLCyclesTerminate(t *testing.T) {
+	// ------------
+	// self-referential anchors must not hang the walker. Inputs yaml.v3
+	// rejects at parse time (forward references) are skipped — there is
+	// no node tree to walk.
+	contents := []string{
+		"ws: &x\n  - *x\n",
+		"x: &x\n  <<: *x\n",
+		"x: &x\n  b: *x\n",
+		"x: &x\n  b:\n    - *x\n",
+	}
+	for _, content := range contents {
+		var doc yaml.Node
+		if err := yaml.Unmarshal([]byte(content), &doc); err != nil {
+			continue
+		}
+		done := make(chan bool, 1)
+		go func() {
+			buildPositionsFromYAML(&doc)
+			done <- true
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("walker did not terminate for %q", content)
+		}
+	}
 }
 
 func TestPositions_JSONViaYAML(t *testing.T) {

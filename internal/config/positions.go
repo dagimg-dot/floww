@@ -68,6 +68,14 @@ func walkYAMLMapping(m map[string]diagnostic.Position, n *yaml.Node, base string
 			m[path] = yamlPos(val)
 		case yaml.AliasNode:
 			m[path] = yamlPos(aliasTarget(val))
+			// index the anchor's content too, so paths inside an aliased
+			// subtree resolve (positions point at the anchor definition)
+			switch aliasTarget(val).Kind {
+			case yaml.MappingNode:
+				walkYAMLMapping(m, aliasTarget(val), path, active)
+			case yaml.SequenceNode:
+				walkYAMLSequence(m, aliasTarget(val), path, active)
+			}
 		case yaml.MappingNode:
 			walkYAMLMapping(m, val, path, active)
 		case yaml.SequenceNode:
@@ -77,6 +85,12 @@ func walkYAMLMapping(m map[string]diagnostic.Position, n *yaml.Node, base string
 }
 
 func walkYAMLSequence(m map[string]diagnostic.Position, n *yaml.Node, base string, active map[*yaml.Node]bool) {
+	if n == nil || n.Kind != yaml.SequenceNode || active[n] {
+		return
+	}
+	active[n] = true
+	defer delete(active, n)
+
 	for i, item := range n.Content {
 		path := diagnostic.Path(base, i)
 		m[path] = yamlPos(item)
@@ -84,7 +98,12 @@ func walkYAMLSequence(m map[string]diagnostic.Position, n *yaml.Node, base strin
 		case yaml.MappingNode:
 			walkYAMLMapping(m, item, path, active)
 		case yaml.AliasNode:
-			walkYAMLMapping(m, aliasTarget(item), path, active)
+			switch aliasTarget(item).Kind {
+			case yaml.MappingNode:
+				walkYAMLMapping(m, aliasTarget(item), path, active)
+			case yaml.SequenceNode:
+				walkYAMLSequence(m, aliasTarget(item), path, active)
+			}
 		}
 	}
 }
