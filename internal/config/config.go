@@ -181,6 +181,26 @@ func (cm *ConfigManager) ListWorkflowNames() []string {
 	return names
 }
 
+// ResolveWorkflowPath resolves a workflow name to a file path within the
+// workflows directory, trying each supported extension in order
+// (.toml → .yaml → .yml → .json). Returns *WorkflowNotFoundError when no
+// matching file exists.
+func (cm *ConfigManager) ResolveWorkflowPath(name string) (string, error) {
+	for _, ext := range cm.loader.GetSupportedFormats() {
+		candidate := filepath.Join(cm.workflowsDir, name+ext)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", &WorkflowNotFoundError{
+		ConfigError: ConfigError{
+			FlowwError: FlowwError{
+				Msg: fmt.Sprintf("Workflow '%s' not found", name),
+			},
+		},
+	}
+}
+
 // LoadWorkflow loads a workflow by name (or by direct file path when
 // isDirectLoad is true).  For name lookups the method tries each supported
 // extension in the order .toml → .yaml → .yml → .json within the workflows
@@ -201,23 +221,10 @@ func (cm *ConfigManager) LoadWorkflow(name string, isDirectLoad bool) (*workflow
 			}
 		}
 	} else {
-		found := false
-		for _, ext := range cm.loader.GetSupportedFormats() {
-			candidate := filepath.Join(cm.workflowsDir, name+ext)
-			if _, err := os.Stat(candidate); err == nil {
-				path = candidate
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, &WorkflowNotFoundError{
-				ConfigError: ConfigError{
-					FlowwError: FlowwError{
-						Msg: fmt.Sprintf("Workflow '%s' not found", name),
-					},
-				},
-			}
+		var err error
+		path, err = cm.ResolveWorkflowPath(name)
+		if err != nil {
+			return nil, err
 		}
 	}
 

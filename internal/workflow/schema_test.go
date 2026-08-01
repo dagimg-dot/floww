@@ -3,7 +3,9 @@ package workflow
 import (
 	"testing"
 
+	"github.com/dagimg-dot/floww/internal/diagnostic"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func ptr[T any](v T) *T {
@@ -203,4 +205,101 @@ func TestValidateWorkflow_WorkflowSchemaError(t *testing.T) {
 	err := &WorkflowSchemaError{Message: "schema error"}
 	assert.Error(t, err)
 	assert.Equal(t, "schema error", err.Error())
+}
+
+func TestValidateWorkflowDetailed_AccumulatesAllErrors(t *testing.T) {
+	wf := &Workflow{
+		Workspaces: []Workspace{
+			{Target: -1, Apps: []App{{Name: "", Exec: "", Type: "invalid"}}},
+			{Target: 1, Apps: []App{{Name: "good", Exec: "good"}}},
+		},
+		FinalWorkspace: ptr(-2),
+	}
+	diags := ValidateWorkflowDetailed("test", wf, nil)
+	require.Len(t, diags, 5)
+	assert.Contains(t, diags[0].Message, "final_workspace")
+	assert.Contains(t, diags[1].Message, "'target' key")
+	assert.Contains(t, diags[2].Message, "'name' key")
+	assert.Contains(t, diags[3].Message, "'exec' key")
+	assert.Contains(t, diags[4].Message, "'type' key")
+}
+
+func TestValidateWorkflowDetailed_NoLocatorPositionsAreZero(t *testing.T) {
+	wf := &Workflow{
+		Workspaces: []Workspace{{Target: -1, Apps: []App{{Name: "a", Exec: "a"}}}},
+	}
+	diags := ValidateWorkflowDetailed("test", wf, nil)
+	require.Len(t, diags, 1)
+	assert.Equal(t, diagnostic.Position{}, diags[0].Position)
+}
+
+type fakeLocator map[string]diagnostic.Position
+
+func (f fakeLocator) Position(path string) (diagnostic.Position, bool) {
+	pos, ok := f[path]
+	return pos, ok
+}
+
+func TestValidateWorkflowDetailed_UsesLocatorPositions(t *testing.T) {
+	loc := fakeLocator{
+		"":                           {Line: 1, Column: 1},
+		"final_workspace":            {Line: 2, Column: 10},
+		"workspaces[0].target":       {Line: 3, Column: 13},
+		"workspaces[0].apps[0].name": {Line: 5, Column: 15},
+		"workspaces[0].apps[0].type": {Line: 7, Column: 15},
+		"workspaces[0].apps[0]":      {Line: 5, Column: 7},
+	}
+	wf := &Workflow{
+		Workspaces:     []Workspace{{Target: -1, Apps: []App{{Name: "", Exec: "", Type: "invalid"}}}},
+		FinalWorkspace: ptr(-1),
+	}
+	diags := ValidateWorkflowDetailed("test", wf, loc)
+	require.Len(t, diags, 5)
+	assert.Equal(t, diagnostic.Position{Line: 2, Column: 10}, diags[0].Position)
+	assert.Equal(t, diagnostic.Position{Line: 3, Column: 13}, diags[1].Position)
+	assert.Equal(t, diagnostic.Position{Line: 5, Column: 15}, diags[2].Position)
+	assert.Equal(t, diagnostic.Position{Line: 5, Column: 7}, diags[3].Position)
+	assert.Equal(t, diagnostic.Position{Line: 7, Column: 15}, diags[4].Position)
+}
+
+func TestValidateWorkflowDetailed_MissingKeyFallsBackToItemPosition(t *testing.T) {
+	loc := fakeLocator{
+		"workspaces[0].apps[0]": {Line: 5, Column: 7},
+	}
+	wf := &Workflow{
+		Workspaces: []Workspace{{Target: 0, Apps: []App{{Name: "", Exec: "xterm"}}}},
+	}
+	diags := ValidateWorkflowDetailed("test", wf, loc)
+	require.Len(t, diags, 1)
+	assert.Equal(t, diagnostic.Position{Line: 5, Column: 7}, diags[0].Position)
+}
+
+func TestValidateWorkflowDetailed_MissingWorkspacesUsesDocPosition(t *testing.T) {
+	loc := fakeLocator{"": {Line: 4, Column: 1}}
+	diags := ValidateWorkflowDetailed("test", &Workflow{Workspaces: nil}, loc)
+	require.Len(t, diags, 1)
+	assert.Contains(t, diags[0].Message, "missing the required 'workspaces' key")
+	assert.Equal(t, diagnostic.Position{Line: 4, Column: 1}, diags[0].Position)
+}
+
+func TestValidateWorkflowDetailed_DefaultDocPosition(t *testing.T) {
+	diags := ValidateWorkflowDetailed("test", &Workflow{Workspaces: nil}, nil)
+	require.Len(t, diags, 1)
+	assert.Equal(t, diagnostic.Position{Line: 1, Column: 1}, diags[0].Position)
+}
+
+func TestValidateWorkflowDetailed_EmptyData(t *testing.T) {
+	diags := ValidateWorkflowDetailed("test", nil, nil)
+	require.Len(t, diags, 1)
+	assert.Contains(t, diags[0].Message, "empty or contains only null")
+	assert.Equal(t, diagnostic.Position{Line: 1, Column: 1}, diags[0].Position)
+}
+
+func TestValidateWorkflowDetailed_AccumulatesTypeMutations(t *testing.T) {
+	wf := &Workflow{
+		Workspaces: []Workspace{{Target: 0, Apps: []App{{Name: "a", Exec: "a", Type: "flatpak"}}}},
+	}
+	diags := ValidateWorkflowDetailed("test", wf, nil)
+	assert.Empty(t, diags)
+	assert.Equal(t, "flatpak", wf.Workspaces[0].Apps[0].Type)
 }

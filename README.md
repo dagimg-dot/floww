@@ -308,7 +308,21 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 *   **Error: Validation failed: <schema error message>**
     *   **Cause:** The workflow file has incorrect syntax or structure (e.g., missing required keys like `target` or `apps`, incorrect data types).
-    *   **Solution:** Run `floww validate <name>` to get specific details about the schema violation. Compare your workflow file structure against the [Configuration](#configuration) section and the [Example Workflow](#example-workflow). If it's a YAML file, check YAML indentation carefully.
+    *   **Solution:** Run `floww validate <name>` (or `floww validate --file <path>` for a file outside the workflows directory). Validation reports compiler-style diagnostics with the exact `file:line:column` of each problem, a source excerpt with a caret pointing at the offending value (when run in a terminal), and all errors are shown at once rather than just the first one. Example:
+
+        ```
+        $ floww validate coding
+        Validating workflow: coding
+
+        error: The 'type' key for app 'term' (app index 0 in workspace target '1' (index 0)) must be one of 'binary', 'flatpak', 'snap', but got 'invalid'.
+          --> ~/.config/floww/workflows/coding.yaml:8:9
+           |
+         8 |         type: invalid
+           |         ^^^^^^^^^^^^^
+           |
+        ```
+
+        When piped or run non-interactively, the compact form `file:line:col: error: message` is used instead. YAML type errors report the line only; TOML and JSON report exact positions.
 
 *   **Error launching <App Name>: Command not found...**
     *   **Cause:** The executable specified in the `exec` field cannot be found.

@@ -19,6 +19,7 @@ func resetCmd() {
 		_ = f.Value.Set(f.DefValue)
 		f.Changed = false
 	})
+	useColorFunc = func() bool { return false }
 }
 
 func setupTest(t *testing.T, dir string) string {
@@ -36,8 +37,19 @@ func setupTest(t *testing.T, dir string) string {
 	return workflowsDir
 }
 
-func TestValidate_ValidWorkflow(t *testing.T) {
+func runCommand(t *testing.T, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
 	resetCmd()
+	out := new(bytes.Buffer)
+	errOut := new(bytes.Buffer)
+	Command.SetOut(out)
+	Command.SetErr(errOut)
+	Command.SetArgs(args)
+	err = Command.Execute()
+	return out.String(), errOut.String(), err
+}
+
+func TestValidate_ValidWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	wfDir := setupTest(t, dir)
@@ -52,32 +64,23 @@ workspaces:
 	err := os.WriteFile(filepath.Join(wfDir, "example.yaml"), []byte(content), 0600)
 	require.NoError(t, err)
 
-	buf := new(bytes.Buffer)
-	Command.SetOut(buf)
-	Command.SetArgs([]string{"example"})
-
-	err = Command.Execute()
+	stdout, stderr, err := runCommand(t, "example")
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Workflow is valid")
+	assert.Contains(t, stdout, "Workflow is valid")
+	assert.Empty(t, stderr)
 }
 
 func TestValidate_NonexistentWorkflow(t *testing.T) {
-	resetCmd()
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	setupTest(t, dir)
 
-	buf := new(bytes.Buffer)
-	Command.SetOut(buf)
-	Command.SetArgs([]string{"nonexistent"})
-
-	err := Command.Execute()
+	_, _, err := runCommand(t, "nonexistent")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestValidate_InvalidWorkflow(t *testing.T) {
-	resetCmd()
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 	wfDir := setupTest(t, dir)
@@ -89,11 +92,91 @@ workspaces:
 	err := os.WriteFile(filepath.Join(wfDir, "invalid.yaml"), []byte(content), 0600)
 	require.NoError(t, err)
 
-	buf := new(bytes.Buffer)
-	Command.SetOut(buf)
-	Command.SetArgs([]string{"invalid"})
-
-	err = Command.Execute()
+	stdout, stderr, err := runCommand(t, "invalid")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "validation failed")
+	assert.Equal(t, "validation failed", err.Error())
+	assert.Contains(t, stdout, "Validating workflow: invalid")
+	assert.NotContains(t, stdout, "Workflow is valid")
+	assert.Contains(t, stderr, ":3:5: error: Workspace definition")
+	assert.Contains(t, stderr, "missing the required 'apps' key")
+}
+
+func TestValidate_SyntaxErrorShowsPosition(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	wfDir := setupTest(t, dir)
+
+	err := os.WriteFile(filepath.Join(wfDir, "bad.yaml"), []byte("workspaces:\n  - target: [1, 2\n"), 0600)
+	require.NoError(t, err)
+
+	_, stderr, err := runCommand(t, "bad")
+	require.Error(t, err)
+	assert.Contains(t, stderr, ":1: error: yaml: line 1:")
+}
+
+func TestValidate_MultipleErrorsReported(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	wfDir := setupTest(t, dir)
+
+	content := `workspaces:
+  - target: 1
+    apps:
+      - name: ""
+        exec: xterm
+        type: invalid
+`
+	err := os.WriteFile(filepath.Join(wfDir, "multi.yaml"), []byte(content), 0600)
+	require.NoError(t, err)
+
+	_, stderr, err := runCommand(t, "multi")
+	require.Error(t, err)
+	assert.Contains(t, stderr, "missing the required 'name' key")
+	assert.Contains(t, stderr, "must be one of 'binary', 'flatpak', 'snap'")
+	assert.Contains(t, stderr, ":6:15: error:")
+}
+
+func TestValidate_FileFlagSkipsInit(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	// no floww config dir at all — --file must still work
+
+	workflowPath := filepath.Join(dir, "outside.yaml")
+	content := `workspaces:
+  - target: 1
+    apps:
+      - name: term
+        exec: xterm
+`
+	err := os.WriteFile(workflowPath, []byte(content), 0600)
+	require.NoError(t, err)
+
+	stdout, stderr, err := runCommand(t, "--file", workflowPath)
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "Workflow is valid")
+	assert.Empty(t, stderr)
+}
+
+func TestValidate_FileFlagInvalid(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	setupTest(t, dir)
+
+	workflowPath := filepath.Join(dir, "bad.json")
+	err := os.WriteFile(workflowPath, []byte(`{"workspaces": [{"target": "abc"}]}`), 0600)
+	require.NoError(t, err)
+
+	_, stderr, err := runCommand(t, "--file", workflowPath)
+	require.Error(t, err)
+	assert.Contains(t, stderr, "bad.json:1:28: error: cannot unmarshal string into int")
+}
+
+func TestValidate_FileNotFound(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	setupTest(t, dir)
+
+	_, _, err := runCommand(t, "--file", filepath.Join(dir, "ghost.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
 }
