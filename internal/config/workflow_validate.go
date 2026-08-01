@@ -25,10 +25,9 @@ type ValidationResult struct {
 
 // ValidateWorkflowFile fully validates a workflow file at path, decoding it
 // directly per format (no JSON round-trip) so parse, type, and schema errors
-// all carry real source positions. Errors are accumulated, not fail-fast.
-//
-// An error is returned only for infrastructure failures (missing file,
-// unsupported extension); validation findings are returned as diagnostics.
+// all carry real source positions. Errors are accumulated, not fail-fast;
+// an error is returned only for infrastructure failures (missing file,
+// unsupported extension).
 func (cm *ConfigManager) ValidateWorkflowFile(path string) (*ValidationResult, error) {
 	if !cm.loader.IsSupportedFormat(path) {
 		return nil, fmt.Errorf("unsupported configuration format: %s", filepath.Ext(path))

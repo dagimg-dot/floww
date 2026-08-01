@@ -16,7 +16,8 @@ type Positions struct {
 	path map[string]diagnostic.Position
 }
 
-// Position returns the source position for a schema path.
+// Position returns the source position for a schema path; ok is false
+// when the path is not in the index.
 func (p *Positions) Position(path string) (diagnostic.Position, bool) {
 	if p == nil {
 		return diagnostic.Position{}, false

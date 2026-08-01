@@ -1,7 +1,5 @@
-// Package diagnostic provides compiler-style diagnostics for floww
-// validation: a position-aware error type and a renderer that prints
-// errors with file:line:col locations and source excerpts, in the style
-// of `niri validate` (miette) or a compiler.
+// Package diagnostic provides position-aware, compiler-style diagnostics
+// for floww validation, modeled on `niri validate` (miette).
 package diagnostic
 
 import (
@@ -28,16 +26,15 @@ type Position struct {
 	Length int // best-effort token length for the caret underline; 0 = unknown
 }
 
-// Diagnostic is a single validation finding with an optional source position.
 type Diagnostic struct {
 	Message  string
 	Position Position
 }
 
 // Path builds a schema path like "workspaces[0].apps[1].exec" from
-// alternating string keys and int indices. The same grammar is used by the
-// position index builders (internal/config) and the workflow validator
-// (internal/workflow), so paths always match.
+// alternating string keys and int indices. The position index builders
+// (internal/config) and the workflow validator share this grammar so
+// paths always match.
 func Path(parts ...any) string {
 	var sb strings.Builder
 	for _, part := range parts {
@@ -54,12 +51,10 @@ func Path(parts ...any) string {
 	return sb.String()
 }
 
-// Render writes diagnostics to w in a compiler-style format.
-//
-// When useColor is true and a diagnostic has a position, a niri/miette-style
-// block is printed with the offending source line and a caret underline.
-// Otherwise a compact one-line form is used: "file:line:col: error: message"
-// (or just "error: message" when the position is unknown).
+// Render writes diagnostics to w. With useColor and a known position, a
+// niri/miette-style block shows the source line with a caret underline;
+// otherwise a compact "file:line:col: error: message" (or "error: message"
+// when the position is unknown).
 func Render(w io.Writer, file string, source []byte, diags []Diagnostic, useColor bool) {
 	for i, d := range diags {
 		if i > 0 {
