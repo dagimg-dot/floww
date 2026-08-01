@@ -182,6 +182,9 @@ func offsetToLineCol(data []byte, offset int64) (int, int) {
 // start, so the caret points at the value rather than its trailing quote.
 func startOfJSONScalar(data []byte, end int64) int {
 	i := int(end)
+	if i <= 0 || i > len(data) {
+		return 0
+	}
 	for i > 0 && isJSONSpace(data[i-1]) {
 		i--
 	}

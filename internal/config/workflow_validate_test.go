@@ -1,12 +1,14 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/dagimg-dot/floww/internal/diagnostic"
+	"github.com/dagimg-dot/floww/internal/workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -196,6 +198,28 @@ func TestValidateWorkflowFile_JSONSchemaPositions(t *testing.T) {
 	assert.Contains(t, res.Diagnostics[0].Message, "must be an integer greater than or equal to 0")
 	assert.Equal(t, 1, res.Diagnostics[0].Position.Line)
 	assert.Equal(t, 28, res.Diagnostics[0].Position.Column)
+}
+
+func TestJSONDiagnostic_MalformedInputsDoNotPanic(t *testing.T) {
+	// ------------
+	// heavily malformed JSON must never panic the offset scanner
+	contents := []string{
+		`{"workspaces": [{"target": }]}`,
+		`{"workspaces": [{"target": "a"`,
+		`{"workspaces": [{"target": 1`,
+		`{"workspaces": "str", "x": [{"a": [1,2]}]}`,
+		`{"target": "s"}`,
+		``,
+		`{]`,
+		`"just a string"`,
+		`[1, 2, 3]`,
+	}
+	for _, content := range contents {
+		var wf workflow.Workflow
+		if err := json.Unmarshal([]byte(content), &wf); err != nil {
+			_ = jsonDiagnostic([]byte(content), err)
+		}
+	}
 }
 
 func TestValidateWorkflowFile_NotFound(t *testing.T) {
