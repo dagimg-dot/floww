@@ -31,7 +31,7 @@ func TestVersionDisplay_Plain(t *testing.T) {
 func TestVersionDisplay_FLOWW_VERSION_SUFFIX(t *testing.T) {
 	t.Setenv("FLOWW_VERSION_SUFFIX", "@custom")
 	v := VersionDisplay()
-	assert.Equal(t, "0.4.0@custom", v)
+	assert.Equal(t, Version+"@custom", v)
 }
 
 func TestVersionDisplay_ENVEnvVar(t *testing.T) {
@@ -39,7 +39,7 @@ func TestVersionDisplay_ENVEnvVar(t *testing.T) {
 	t.Setenv("FLOWW_DEV", "")
 	t.Setenv("ENV", "dev")
 	v := VersionDisplay()
-	assert.Equal(t, "0.4.0@dev", v)
+	assert.Equal(t, Version+"@dev", v)
 }
 
 func TestVersionDisplay_FLOWW_VERSION_SUFFIX_TakesPrecedence(t *testing.T) {
@@ -47,7 +47,7 @@ func TestVersionDisplay_FLOWW_VERSION_SUFFIX_TakesPrecedence(t *testing.T) {
 	t.Setenv("FLOWW_VERSION_SUFFIX", "@rc1")
 	t.Setenv("ENV", "dev")
 	v := VersionDisplay()
-	assert.Equal(t, "0.4.0@rc1", v)
+	assert.Equal(t, Version+"@rc1", v)
 }
 
 func TestVersionDisplay_DotenvFile(t *testing.T) {
@@ -69,7 +69,7 @@ func TestVersionDisplay_DotenvFile(t *testing.T) {
 	require.NoError(t, err)
 
 	v := VersionDisplay()
-	assert.Equal(t, "0.4.0@dev", v)
+	assert.Equal(t, Version+"@dev", v)
 }
 
 func TestVersionDisplay_DotenvFileStripsLeadingAt(t *testing.T) {
@@ -91,7 +91,7 @@ func TestVersionDisplay_DotenvFileStripsLeadingAt(t *testing.T) {
 	require.NoError(t, err)
 
 	v := VersionDisplay()
-	assert.Equal(t, "0.4.0@beta", v)
+	assert.Equal(t, Version+"@beta", v)
 }
 
 func TestVersionDisplay_NoDotenvFileReturnsPlain(t *testing.T) {
