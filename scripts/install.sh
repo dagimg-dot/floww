@@ -79,22 +79,42 @@ check_dependencies() {
     fi
 }
 
-get_latest_version() {
-    local release_url="https://api.github.com/repos/${REPO}/releases/latest"
-    logger info "Fetching latest version information from $release_url"
+detect_arch() {
+    case "$(uname -m)" in
+        x86_64 | amd64)
+            ARCH="x86_64"
+            ;;
+        aarch64 | arm64)
+            ARCH="arm64"
+            ;;
+        *)
+            logger error "Unsupported architecture: $(uname -m)"
+            logger error "Supported architectures: x86_64, arm64"
+            exit 1
+            ;;
+    esac
+    logger info "Detected architecture: $ARCH"
+}
 
-    # Capture the curl output separately from logging
-    local api_response
-    api_response=$(curl -fsS "${release_url}") || {
-        logger error "Failed to fetch release information"
+asset_exists() {
+    local url="$1"
+    # HEAD request following redirects; -f makes a 404 return non-zero.
+    curl -fsSLI --max-time 20 -o /dev/null "$url" 2>/dev/null
+}
+
+get_latest_version() {
+    local release_url="https://github.com/${REPO}/releases/latest"
+    logger info "Resolving latest release from $release_url"
+
+    local redirect_url
+    redirect_url=$(curl -fsSI -o /dev/null -w '%{redirect_url}' --max-time 20 "$release_url") || {
+        logger error "Failed to resolve latest release (network issue?)"
         exit 1
     }
 
-    local latest_version
-    latest_version=$(echo "$api_response" | grep '"tag_name":' | sed -E 's/.*"tag_name": ?"([^"]+)".*/\1/')
-
-    if [[ -z "$latest_version" ]]; then
-        logger error "Could not parse version from GitHub API response"
+    local latest_version="${redirect_url##*/}"
+    if [[ -z "$latest_version" || "$redirect_url" != *"/releases/tag/"* ]]; then
+        logger error "Could not parse version from redirect: $redirect_url"
         exit 1
     fi
 
@@ -106,9 +126,23 @@ get_asset_info() {
     local version="$1"
     local version_no_v="${version#v}"
 
-    ASSET_NAME="${APP_NAME}-${version_no_v}-${PLATFORM}-${ARCH}.${EXT}"
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${version}/${ASSET_NAME}"
+    # Preferred naming (current GoReleaser): floww-<version>-linux-<arch>.tar.gz
+    # Legacy naming (first GoReleaser config): floww_Linux_<arch>.tar.gz
+    local preferred="${APP_NAME}-${version_no_v}-${PLATFORM}-${ARCH}.${EXT}"
+    local legacy="${APP_NAME}_Linux_${ARCH}.${EXT}"
 
+    if asset_exists "https://github.com/${REPO}/releases/download/${version}/${preferred}"; then
+        ASSET_NAME="$preferred"
+    elif asset_exists "https://github.com/${REPO}/releases/download/${version}/${legacy}"; then
+        ASSET_NAME="$legacy"
+    else
+        logger error "No ${PLATFORM}-${ARCH} release asset found for $version."
+        logger error "Tried: $preferred and $legacy"
+        logger error "Please check the assets of release $version."
+        exit 1
+    fi
+
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${version}/${ASSET_NAME}"
     logger info "Asset Name: $ASSET_NAME"
     logger info "Download URL: $DOWNLOAD_URL"
 }
@@ -138,7 +172,7 @@ download_archive() {
     logger info "Downloading $APP_NAME ($ASSET_NAME)..."
     remove_if_exists "$tmp_file"
 
-    if curl --progress-bar -fSL -o "$tmp_file" "${DOWNLOAD_URL}"; then
+    if curl --progress-bar -fSL --max-time 600 -o "$tmp_file" "${DOWNLOAD_URL}"; then
         logger info "Download finished successfully: $tmp_file"
     else
         logger error "Download failed! Check URL, network, and permissions."
@@ -215,7 +249,9 @@ check_if_installed() {
             printf ""
             return
         }
-        installed_version=$(echo "$version_output" | awk '{print $3}')
+        installed_version=$(printf '%s' "$version_output" | tr -d '[:space:]')
+        installed_version="${installed_version#v}"
+        installed_version="${installed_version%@*}"
     fi
 
     if [[ -n "$installed_version" ]]; then
@@ -246,6 +282,7 @@ update_app() {
         delete_old_version
 
         install_app "$downloaded_archive"
+        remove_if_exists "$downloaded_archive"
         logger info "$APP_NAME updated successfully to $latest_version."
     else
         logger info "You already have the latest version (v$installed_version_no_v) installed."
@@ -258,11 +295,11 @@ main() {
     logger info "Starting $APP_NAME installation script..."
 
     check_dependencies
+    detect_arch
 
-    local latest_version
+    local latest_version installed_version downloaded_archive
     latest_version=$(get_latest_version)
 
-    local installed_version
     installed_version=$(check_if_installed)
 
     if [[ -n "$installed_version" ]]; then
@@ -273,15 +310,13 @@ main() {
         logger info "Proceeding with fresh installation of version $latest_version."
 
         get_asset_info "$latest_version"
+        delete_old_version
 
-        local downloaded_archive
         downloaded_archive=$(download_archive)
-
         install_app "$downloaded_archive"
-    fi
 
-    # Clean up temporary files after successful installation
-    remove_if_exists "$downloaded_archive"
+        remove_if_exists "$downloaded_archive"
+    fi
 
     logger info "$APP_NAME installation/update process finished."
 }
